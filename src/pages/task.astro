@@ -1,0 +1,117 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Workspace from '../components/Workspace.astro';
+import Predict from '../components/Predict.astro';
+import Assistant from '../components/Assistant.astro';
+---
+
+<Layout title="Zadanie" wide>
+  <a class="back" id="back" href="#">← Lekcja</a>
+  <div class="task-layout">
+    <div class="description">
+      <p class="eyebrow" id="task-number"></p>
+      <h1 id="task-title"></h1>
+      <div class="prose" id="task-body"><p class="loading">Ładuję zadanie…</p></div>
+      <p class="next" id="task-next" hidden>
+        <span class="eyebrow">Następne</span>
+        <a href="#"></a>
+      </p>
+      <Assistant />
+    </div>
+    <div class="work">
+      <Workspace />
+      <Predict />
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, taskPath, topicsUpTo } from '../lib/content';
+  import { renderMarkdown } from '../lib/markdown';
+  import { mountWorkspace } from '../lib/workspace';
+  import { mountPredict } from '../lib/predict';
+  import { mountAssistant } from '../lib/assistant';
+  import { param } from '../lib/url';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  requireAccess().then(async (access) => {
+    if (!access) return;
+    const course = await courseBySlug(param('c'));
+    const all = course ? await tasks(course.id) : [];
+    const index = all.findIndex((t) => t.slug === param('t'));
+    const task = all[index];
+    if (!course || !task) {
+      $('task-body').textContent = 'To zadanie nie istnieje albo nie jest jeszcze odblokowane.';
+      return;
+    }
+    const courseLessons = await lessons(course.id);
+    const lesson = courseLessons.find((l) => l.number === task.lesson_number);
+
+    document.title = `${task.title} · Kurs programowania`;
+    ($('back') as HTMLAnchorElement).href = lessonPath(course, task.lesson_number);
+    $('back').textContent = `← Lekcja ${task.lesson_number}${lesson ? `: ${lesson.title}` : ''}`;
+    $('task-number').textContent = `Lekcja ${String(task.lesson_number).padStart(2, '0')} · Zadanie ${task.number}`;
+    $('task-title').textContent = task.title;
+    $('task-body').innerHTML = renderMarkdown(task.body_md);
+
+    const next = all[index + 1];
+    if (next && next.lesson_number === task.lesson_number) {
+      const link = $('task-next').querySelector('a')!;
+      link.href = taskPath(course, next);
+      link.textContent = `${next.title} →`;
+      $('task-next').hidden = false;
+    }
+
+    if (task.kind === 'predict') {
+      mountPredict(document.querySelector('.predict')!, task);
+    } else {
+      mountWorkspace(document.querySelector('.workspace')!, {
+        draftKey: task.id,
+        starterCode: task.starter_code,
+        task: { id: task.id, tests: task.tests },
+      });
+    }
+    mountAssistant({
+      taskId: task.id,
+      task: `${task.title}\n\n${task.body_md}${task.predict_code ? `\n\n${task.predict_code}` : ''}`,
+      topics: topicsUpTo(courseLessons, task.lesson_number),
+    });
+  });
+</script>
+
+<style>
+  .task-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 48px;
+    align-items: start;
+  }
+  .work {
+    position: sticky;
+    top: 80px;
+  }
+  .description {
+    max-width: 62ch;
+  }
+  .description h1 {
+    margin-top: 6px;
+    margin-bottom: 20px;
+  }
+  .next {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 32px 0 0;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  @media (max-width: 900px) {
+    .task-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .work {
+      position: static;
+    }
+  }
+</style>

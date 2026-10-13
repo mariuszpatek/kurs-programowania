@@ -1,0 +1,93 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Kursy">
+  <p class="eyebrow">Twoje kursy</p>
+  <h1 id="greeting">Cześć!</h1>
+  <p class="lead">Tematy z lekcji i zadania na czas między nimi. Kod piszesz i sprawdzasz od razu tutaj.</p>
+  <div id="courses" class="courses"></div>
+</Layout>
+
+<script>
+  import { requireAccess, lessons, tasks, coursePath, type Course } from '../lib/content';
+  import { taskStatuses } from '../lib/progress';
+
+  const el = (tag: string, text = '', className = '') => {
+    const e = document.createElement(tag);
+    e.textContent = text;
+    if (className) e.className = className;
+    return e;
+  };
+
+  async function courseCard(course: Course, unlocked: number | null) {
+    const [ls, ts] = await Promise.all([lessons(course.id), tasks(course.id)]);
+    const statuses = await taskStatuses(ts.map((t) => t.id));
+    const done = ts.filter((t) => statuses.get(t.id) === 'done').length;
+
+    const card = el('a', '', 'course card') as HTMLAnchorElement;
+    card.href = coursePath(course);
+    card.append(
+      el('p', [course.level, course.language === 'python' ? 'Python' : course.language].filter(Boolean).join(' · '), 'eyebrow'),
+      el('h2', course.title),
+    );
+    if (course.description) card.append(el('p', course.description, 'muted'));
+    const meta = el('p', '', 'meta');
+    meta.textContent = unlocked === null ? `${ls.length} lekcji (widok nauczyciela)` : `Dostępne lekcje: ${ls.length}`;
+    card.append(meta);
+    const progress = el('div', '', 'progress');
+    const bar = el('div', '', 'progress-bar');
+    const fill = el('span');
+    fill.style.width = `${ts.length ? (100 * done) / ts.length : 0}%`;
+    bar.append(fill);
+    progress.append(bar, el('span', `${done}/${ts.length} zadań`, 'progress-count'));
+    card.append(progress);
+    return card;
+  }
+
+  requireAccess().then(async (access) => {
+    if (!access) return;
+    const name = access.email.split('@')[0];
+    document.getElementById('greeting')!.textContent = `Cześć, ${name}!`;
+    const list = document.getElementById('courses')!;
+    const courses = access.courses;
+    if (!courses.length) {
+      list.append(el('p', 'Nie ma jeszcze żadnych kursów.', 'muted'));
+      return;
+    }
+    const enrolled = new Map(access.enrollments.map((e) => [e.course_id, e.unlocked_through]));
+    const cards = await Promise.all(courses.map((c) => courseCard(c, enrolled.get(c.id) ?? null)));
+    list.replaceChildren(...cards);
+  });
+</script>
+
+<style>
+  .courses {
+    display: grid;
+    gap: 16px;
+    margin-top: 40px;
+  }
+  .courses :global(.course) {
+    display: block;
+    padding: 24px 26px;
+    color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .courses :global(.course:hover) {
+    text-decoration: none;
+    border-color: var(--line-strong);
+  }
+  .courses :global(.course h2) {
+    margin: 6px 0 6px;
+    font-size: 1.5rem;
+  }
+  .courses :global(.course .muted) {
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  .courses :global(.meta) {
+    font-size: 13.5px;
+    color: var(--text-3);
+    margin-bottom: 14px;
+  }
+</style>

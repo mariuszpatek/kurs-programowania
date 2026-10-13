@@ -1,0 +1,435 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Panel nauczyciela" wide>
+  <p class="eyebrow">Tylko dla nauczyciela</p>
+  <h1>Panel</h1>
+  <p class="lead" id="teacher-info">Ładuję…</p>
+
+  <section class="card add" id="add-student" hidden>
+    <p class="eyebrow">Dodaj ucznia</p>
+    <form id="add-form">
+      <div class="field grow">
+        <label for="add-email">E-mail ucznia</label>
+        <input id="add-email" type="email" required placeholder="uczen@email.pl" />
+      </div>
+      <div class="field">
+        <label for="add-course">Kurs</label>
+        <select id="add-course" required></select>
+      </div>
+      <div class="field narrow">
+        <label for="add-unlocked">Do lekcji</label>
+        <input id="add-unlocked" type="number" min="0" value="1" required />
+      </div>
+      <button class="primary" type="submit">Dodaj</button>
+    </form>
+    <p class="form-message" id="add-message" role="status"></p>
+  </section>
+
+  <div id="students" class="students"></div>
+</Layout>
+
+<script>
+  import { requireAccess, lessons, tasks, type Course, type Enrollment, type Task } from '../lib/content';
+  import { supabase } from '../lib/supabase';
+
+  type TestResult = { name: string; ok: boolean };
+  type PredictLine = { student: string | null; actual: string | null; ok: boolean };
+  type Attempt = { email: string; task_id: string; code: string; passed: boolean; results: unknown; created_at: string };
+  type CourseData = { course: Course; lessonCount: number; tasks: Task[] };
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', className = '') => {
+    const e = document.createElement(tag);
+    e.textContent = text;
+    if (className) e.className = className;
+    return e;
+  };
+  const plural = (n: number) => (n === 1 ? 'próba' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'próby' : 'prób');
+  const when = (s: string) => new Date(s).toLocaleString('pl-PL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  let courseData = new Map<string, CourseData>();
+  let attempts: Attempt[] = [];
+
+  /** What went wrong in an attempt: names of failed tests, or mispredicted lines. */
+  function failures(a: Attempt): string[] {
+    if (!Array.isArray(a.results)) return [];
+    return (a.results as (TestResult | PredictLine)[]).flatMap((r, i) => {
+      if (r.ok) return [];
+      if ('name' in r) return [r.name];
+      return [`linijka ${i + 1}: „${r.student ?? ''}” zamiast „${r.actual ?? ''}”`];
+    });
+  }
+
+  function history(list: Attempt[]) {
+    const ol = el('ol', '', 'history');
+    list.forEach((a, i) => {
+      const li = el('li');
+      const head = el('div', '', 'attempt-head');
+      head.append(
+        el('span', `#${list.length - i}`, 'row-number'),
+        el('span', a.passed ? 'zaliczona' : 'nie przeszła', `status-dot ${a.passed ? 'done' : 'started'}`),
+        el('span', when(a.created_at), 'when'),
+      );
+      li.append(head);
+      const failed = failures(a);
+      if (failed.length) li.append(el('p', `Nie przeszło: ${failed.join(' · ')}`, 'failed'));
+      const code = el('details', '', 'attempt-code');
+      code.append(el('summary', 'Kod'), el('pre', a.code));
+      code.open = i === 0;
+      li.append(code);
+      ol.append(li);
+    });
+    return ol;
+  }
+
+  /** Two clicks instead of confirm(): the first arms the button, a second within 3 s runs the action. */
+  function confirmButton(label: string, armedLabel: string, action: () => Promise<void>) {
+    const button = el('button', label, 'ghost');
+    let timer: number | undefined;
+    button.addEventListener('click', async () => {
+      if (!timer) {
+        button.textContent = armedLabel;
+        timer = window.setTimeout(() => ((timer = undefined), (button.textContent = label)), 3000);
+        return;
+      }
+      clearTimeout(timer);
+      button.disabled = true;
+      await action();
+    });
+    return button;
+  }
+
+  async function setUnlocked(e: Enrollment, value: number) {
+    const { error } = await supabase
+      .from('lms_enrollments')
+      .update({ unlocked_through: value })
+      .eq('email', e.email)
+      .eq('course_id', e.course_id);
+    if (error) alertInline(`Nie udało się zmienić: ${error.message}`);
+    else e.unlocked_through = value;
+  }
+
+  function alertInline(text: string) {
+    $('teacher-info').textContent = text;
+  }
+
+  function enrollmentCard(e: Enrollment) {
+    const data = courseData.get(e.course_id);
+    const card = el('section', '', 'student card');
+    if (!data) return card;
+    const mine = attempts.filter((a) => a.email === e.email && data.tasks.some((t) => t.id === a.task_id));
+    const done = data.tasks.filter((t) => mine.some((a) => a.task_id === t.id && a.passed)).length;
+    const last = mine[0];
+
+    const head = el('header');
+    const who = el('div');
+    who.append(
+      el('h2', e.email),
+      el('p', `${data.course.title} · ${last ? `ostatnio ${when(last.created_at)}` : 'jeszcze nic nie sprawdzał'}`, 'muted'),
+    );
+
+    const unlock = el('div', '', 'unlock');
+    const value = el('strong', String(e.unlocked_through));
+    const minus = el('button', '−');
+    const plus = el('button', '+');
+    minus.setAttribute('aria-label', 'Zablokuj ostatnią lekcję');
+    plus.setAttribute('aria-label', 'Odblokuj kolejną lekcję');
+    const refresh = () => {
+      value.textContent = String(e.unlocked_through);
+      minus.disabled = e.unlocked_through <= 0;
+    };
+    minus.addEventListener('click', async () => (await setUnlocked(e, e.unlocked_through - 1), refresh()));
+    plus.addEventListener('click', async () => (await setUnlocked(e, e.unlocked_through + 1), refresh()));
+    refresh();
+    const unlockLabel = el('span', `odblokowane do lekcji (z ${data.lessonCount})`, 'muted');
+    unlock.append(minus, value, plus, unlockLabel);
+
+    const score = el('div', '', 'score');
+    score.append(el('strong', `${done}/${data.tasks.filter((t) => t.lesson_number <= e.unlocked_through).length}`), el('span', 'zaliczonych', 'muted'));
+    head.append(who, unlock, score);
+    card.append(head);
+
+    for (const t of data.tasks) {
+      const list = mine.filter((a) => a.task_id === t.id);
+      const passed = list.some((a) => a.passed);
+      const locked = t.lesson_number > e.unlocked_through;
+      const row = el('details', '', `task-row ${locked ? 'locked' : ''}`);
+      const summary = el('summary');
+      summary.append(
+        el('span', `${t.lesson_number}.${t.number}`, 'row-number'),
+        el('span', t.title, 'row-title'),
+        el(
+          'span',
+          locked ? 'zablokowane' : list.length ? (passed ? 'zaliczone' : 'w trakcie') : 'nie zaczęte',
+          `status-dot ${passed ? 'done' : list.length ? 'started' : ''}`,
+        ),
+        el('span', list.length ? `${list.length} ${plural(list.length)}` : '', 'count'),
+      );
+      row.append(summary, list.length ? history(list) : el('p', 'Brak prób.', 'muted empty'));
+      card.append(row);
+    }
+
+    const footer = el('div', '', 'student-footer');
+    footer.append(
+      confirmButton('Usuń z kursu', 'Na pewno? Kliknij znowu', async () => {
+        const { error } = await supabase.from('lms_enrollments').delete().eq('email', e.email).eq('course_id', e.course_id);
+        if (error) alertInline(`Nie udało się usunąć: ${error.message}`);
+        else card.remove();
+      }),
+    );
+    card.append(footer);
+    return card;
+  }
+
+  async function load() {
+    const [{ data: enrollments }, { data: rawAttempts, error }] = await Promise.all([
+      supabase.from('lms_enrollments').select('email, course_id, unlocked_through').order('created_at'),
+      supabase.rpc('lms_teacher_attempts'),
+    ]);
+    if (error) {
+      alertInline(`Brak dostępu do panelu: ${error.message}`);
+      return;
+    }
+    attempts = rawAttempts ?? [];
+    const list = (enrollments ?? []) as Enrollment[];
+    alertInline(
+      list.length
+        ? 'Uczniowie, ich kursy i postępy. Kliknij zadanie, żeby zobaczyć wszystkie próby i kod.'
+        : 'Nie ma jeszcze uczniów. Dodaj pierwszego formularzem poniżej.',
+    );
+    $('students').replaceChildren(...list.map(enrollmentCard));
+  }
+
+  requireAccess().then(async (access) => {
+    if (!access) return;
+    if (!access.isTeacher) {
+      alertInline('Ta strona jest tylko dla nauczyciela.');
+      return;
+    }
+    const entries = await Promise.all(
+      access.courses.map(async (course) => {
+        const [ls, ts] = await Promise.all([lessons(course.id), tasks(course.id)]);
+        return [course.id, { course, lessonCount: ls.length, tasks: ts }] as const;
+      }),
+    );
+    courseData = new Map(entries);
+    ($('add-course') as HTMLSelectElement).replaceChildren(
+      ...access.courses.map((c) => {
+        const o = el('option', [c.title, c.level].filter(Boolean).join(' · '));
+        o.value = c.id;
+        return o;
+      }),
+    );
+    $('add-student').hidden = false;
+    await load();
+  });
+
+  $('add-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = ($('add-email') as HTMLInputElement).value.trim().toLowerCase();
+    const courseId = ($('add-course') as HTMLSelectElement).value;
+    const unlocked = Number(($('add-unlocked') as HTMLInputElement).value);
+    const message = $('add-message');
+    const button = (e.target as HTMLFormElement).querySelector('button')!;
+    button.disabled = true;
+    message.textContent = 'Dodaję…';
+
+    const { error } = await supabase.from('lms_enrollments').insert({ email, course_id: courseId, unlocked_through: unlocked });
+    if (error) {
+      message.textContent = error.code === '23505' ? 'Ten uczeń jest już zapisany na ten kurs.' : `Nie udało się dodać: ${error.message}`;
+      button.disabled = false;
+      return;
+    }
+    const { error: inviteError } = await supabase.functions.invoke('lms-invite', { body: { email } });
+    message.textContent = inviteError
+      ? 'Zapisano na kurs, ale nie udało się założyć konta. Załóż je ręcznie w Supabase (Authentication → Add user).'
+      : `Dodano ${email}. Uczeń loguje się na stronie swoim e-mailem, bez hasła.`;
+    ($('add-email') as HTMLInputElement).value = '';
+    button.disabled = false;
+    await load();
+  });
+</script>
+
+<style>
+  .add {
+    margin-top: 32px;
+    padding: 20px 24px;
+  }
+  #add-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    margin-top: 12px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 180px;
+  }
+  .field.grow {
+    flex: 1;
+    min-width: 220px;
+  }
+  .field.narrow {
+    min-width: 0;
+    width: 100px;
+  }
+  .field label {
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  #add-form button {
+    height: 40px;
+  }
+  .form-message {
+    margin: 10px 0 0;
+    font-size: 14px;
+    color: var(--text-2);
+  }
+  .form-message:empty {
+    display: none;
+  }
+  .students {
+    display: grid;
+    gap: 24px;
+    margin-top: 32px;
+  }
+  .students :global(.student) {
+    padding: 24px 24px 12px;
+  }
+  .students :global(header) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px 32px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .students :global(h2) {
+    margin: 0;
+    font-size: 1.2rem;
+    word-break: break-all;
+  }
+  .students :global(header p) {
+    margin: 2px 0 0;
+    font-size: 14px;
+  }
+  .students :global(.unlock) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .students :global(.unlock button) {
+    width: 32px;
+    padding: 0;
+    font-size: 16px;
+  }
+  .students :global(.unlock strong) {
+    min-width: 24px;
+    text-align: center;
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .students :global(.unlock .muted) {
+    font-size: 13.5px;
+  }
+  .students :global(.score) {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .students :global(.score strong) {
+    font-size: 1.8rem;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .students :global(.task-row) {
+    border-top: 1px solid var(--line);
+  }
+  .students :global(.task-row.locked) {
+    opacity: 0.5;
+  }
+  .students :global(.task-row > summary) {
+    display: grid;
+    grid-template-columns: 40px 1fr auto 72px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    cursor: pointer;
+    list-style: none;
+  }
+  .students :global(.task-row > summary::-webkit-details-marker) {
+    display: none;
+  }
+  .students :global(.task-row > summary:hover .row-title) {
+    color: var(--accent);
+  }
+  .students :global(.count) {
+    font-size: 13px;
+    color: var(--text-3);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .students :global(.empty) {
+    margin: 0 0 14px 52px;
+    font-size: 14px;
+  }
+  .students :global(.history) {
+    list-style: none;
+    margin: 0 0 16px 52px;
+    padding: 0 0 0 16px;
+    border-left: 1px solid var(--line);
+  }
+  .students :global(.history li) {
+    margin: 0 0 14px;
+  }
+  .students :global(.attempt-head) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13.5px;
+  }
+  .students :global(.when) {
+    color: var(--text-3);
+  }
+  .students :global(.failed) {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    color: var(--bad);
+  }
+  .students :global(.attempt-code summary) {
+    font-size: 13px;
+    color: var(--text-2);
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .students :global(.attempt-code pre) {
+    margin: 8px 0 0;
+    font-size: 13px;
+  }
+  .students :global(.student-footer) {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  @media (max-width: 640px) {
+    .students :global(.student) {
+      padding: 20px 16px 8px;
+    }
+    .students :global(.task-row > summary) {
+      grid-template-columns: 32px 1fr auto;
+    }
+    .students :global(.count) {
+      display: none;
+    }
+    .students :global(.history),
+    .students :global(.empty) {
+      margin-left: 8px;
+    }
+  }
+</style>

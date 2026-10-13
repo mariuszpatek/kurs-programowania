@@ -1,0 +1,138 @@
+---
+// "What will be printed?" task. Markup only: src/lib/predict.ts mounts it once the task has been loaded.
+---
+
+<div class="predict" hidden>
+  <div class="ide card">
+    <div class="ide-bar">
+      <span class="file"><span class="dot"></span>zagadka.py</span>
+      <span class="status" role="status">Ładuję Pythona…</span>
+    </div>
+    <pre class="code"></pre>
+    <div class="answer">
+      <label class="eyebrow" for="guess">Co się wypisze?</label>
+      <textarea id="guess" rows="6" spellcheck="false" placeholder="Każda linijka wyniku w osobnej linijce"></textarea>
+    </div>
+    <div class="actions">
+      <button class="check primary" disabled>Sprawdź</button>
+    </div>
+  </div>
+
+  <div class="comparison" hidden aria-live="polite">
+    <div class="verdict"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Twoja odpowiedź</th><th>Prawdziwy wynik</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ide {
+    overflow: hidden;
+  }
+  .ide-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 42px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    padding: 0 16px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    margin-bottom: -1px;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .status {
+    font-size: 12.5px;
+    color: var(--text-3);
+  }
+  .code {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    padding: 14px 16px 14px 8px;
+    font-size: 14.5px;
+    line-height: 1.75;
+  }
+  .code :global(.line) {
+    display: block;
+  }
+  .code :global(.ln) {
+    display: inline-block;
+    width: 32px;
+    padding-right: 14px;
+    text-align: right;
+    color: var(--text-3);
+    user-select: none;
+  }
+  .answer {
+    padding: 14px 16px 4px;
+    border-top: 1px solid var(--line);
+  }
+  .answer label {
+    display: block;
+    margin-bottom: 8px;
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 16px;
+  }
+  .comparison {
+    margin-top: 20px;
+  }
+  .verdict {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 14px;
+  }
+  .verdict :global(strong) {
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
+  }
+  .verdict.passed :global(strong) {
+    color: var(--ok);
+  }
+  .verdict :global(span) {
+    color: var(--text-2);
+    font-size: 14px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table :global(td) {
+    font-family: var(--mono);
+    font-size: 14px;
+    white-space: pre;
+    padding-left: 10px;
+  }
+  table :global(td:first-child) {
+    color: var(--text-3);
+    width: 40px;
+  }
+  table :global(tr.bad td) {
+    background: var(--bad-bg);
+  }
+  table :global(tr.bad td:nth-child(2)) {
+    color: var(--bad);
+  }
+</style>

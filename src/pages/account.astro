@@ -1,0 +1,43 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Konto">
+  <p class="eyebrow">Konto</p>
+  <h1 id="account-email"></h1>
+  <p class="muted" id="account-role"></p>
+  <button id="logout">Wyloguj</button>
+</Layout>
+
+<script>
+  import { requireAccess } from '../lib/content';
+  import { supabase } from '../lib/supabase';
+  import { url } from '../lib/url';
+
+  requireAccess().then((access) => {
+    if (!access) return;
+    document.getElementById('account-email')!.textContent = access.email;
+    const titles = access.enrollments
+      .map((e) => access.courses.find((c) => c.id === e.course_id)?.title)
+      .filter(Boolean)
+      .join(', ');
+    document.getElementById('account-role')!.textContent = access.isTeacher
+      ? 'Nauczyciel: widzisz wszystkie kursy i panel z postępami uczniów.'
+      : `Zapisany na: ${titles}.`;
+  });
+
+  document.getElementById('logout')!.addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    location.href = url('login/');
+  });
+</script>
+
+<style>
+  h1 {
+    font-size: 1.8rem;
+    word-break: break-all;
+  }
+  #logout {
+    margin-top: 8px;
+  }
+</style>

@@ -1,0 +1,33 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Workspace from '../components/Workspace.astro';
+---
+
+<Layout title="Piaskownica">
+  <p class="eyebrow">Bez sprawdzania</p>
+  <h1>Piaskownica</h1>
+  <p class="lead">Miejsce na własne eksperymenty. Kod zapamiętuje się w tej przeglądarce.</p>
+  <div class="space">
+    <Workspace />
+  </div>
+</Layout>
+
+<script>
+  import { requireAccess } from '../lib/content';
+  import { mountWorkspace } from '../lib/workspace';
+
+  requireAccess().then((access) => {
+    if (!access) return;
+    mountWorkspace(document.querySelector('.workspace')!, {
+      draftKey: 'sandbox',
+      starterCode: 'imie = input("Jak masz na imię? ")\nprint("Cześć, " + imie + "!")\n',
+      starterStdin: 'Ola',
+    });
+  });
+</script>
+
+<style>
+  .space {
+    margin-top: 32px;
+  }
+</style>

@@ -1,0 +1,203 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Lekcja">
+  <a class="back" id="back" href="#">← Kurs</a>
+  <p class="eyebrow" id="lesson-number"></p>
+  <h1 id="lesson-title"></h1>
+  <ul class="topics" id="lesson-topics"></ul>
+  <article class="prose" id="lesson-body"><p class="loading">Ładuję lekcję…</p></article>
+
+  <section class="tasks card" id="lesson-tasks" hidden>
+    <p class="eyebrow">Zadania po tej lekcji</p>
+    <ol class="row-list"></ol>
+  </section>
+
+  <section class="export" id="lesson-export" hidden>
+    <div>
+      <p class="eyebrow">Lekcja jako tekst</p>
+      <p class="muted">Cała lekcja w Markdownie. Możesz ją wkleić do ChatGPT albo Claude i zadawać pytania o materiał.</p>
+    </div>
+    <div class="export-buttons">
+      <button id="copy-md" class="primary">Kopiuj lekcję</button>
+      <button id="download-md">Pobierz .md</button>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { requireAccess, courseBySlug, lessons, tasks, coursePath, taskPath } from '../lib/content';
+  import { renderMarkdown } from '../lib/markdown';
+  import { taskStatuses } from '../lib/progress';
+  import { param } from '../lib/url';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const el = (tag: string, text = '', className = '') => {
+    const e = document.createElement(tag);
+    e.textContent = text;
+    if (className) e.className = className;
+    return e;
+  };
+  const STATUS_TEXT = { done: 'zaliczone', started: 'w trakcie', todo: 'do zrobienia' };
+
+  /** Copy buttons on code blocks: handy for the tutor prompt and examples. */
+  function addCopyButtons(root: HTMLElement) {
+    root.querySelectorAll('pre').forEach((pre) => {
+      const button = el('button', 'Kopiuj', 'copy ghost');
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(pre.querySelector('code')?.textContent ?? pre.textContent ?? '');
+          button.textContent = 'Skopiowano';
+        } catch {
+          getSelection()?.selectAllChildren(pre);
+          button.textContent = 'Zaznaczono, Ctrl+C';
+        }
+        setTimeout(() => (button.textContent = 'Kopiuj'), 2000);
+      });
+      const wrap = el('div', '', 'code-block');
+      pre.replaceWith(wrap);
+      wrap.append(pre, button);
+    });
+  }
+
+  requireAccess().then(async (access) => {
+    if (!access) return;
+    const course = await courseBySlug(param('c'));
+    const number = Number(param('n'));
+    const lesson = course ? (await lessons(course.id)).find((l) => l.number === number) : undefined;
+    if (!course || !lesson) {
+      $('lesson-body').replaceChildren(el('p', 'Ta lekcja nie istnieje albo nie jest jeszcze odblokowana.', 'muted'));
+      return;
+    }
+    document.title = `${lesson.title} · Kurs programowania`;
+    ($('back') as HTMLAnchorElement).href = coursePath(course);
+    $('back').textContent = `← ${course.title}`;
+    $('lesson-number').textContent = `Lekcja ${String(lesson.number).padStart(2, '0')}`;
+    $('lesson-title').textContent = lesson.title;
+    $('lesson-topics').replaceChildren(...lesson.topics.map((t) => el('li', t)));
+    $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
+    addCopyButtons($('lesson-body'));
+
+    const lessonTasks = (await tasks(course.id)).filter((t) => t.lesson_number === lesson.number);
+    if (lessonTasks.length) {
+      const statuses = await taskStatuses(lessonTasks.map((t) => t.id));
+      $('lesson-tasks').querySelector('ol')!.replaceChildren(
+        ...lessonTasks.map((t) => {
+          const status = statuses.get(t.id) ?? 'todo';
+          const row = el('a', '', 'row') as HTMLAnchorElement;
+          row.href = taskPath(course, t);
+          row.append(el('span', String(t.number), 'row-number'), el('span', t.title, 'row-title'), el('span', STATUS_TEXT[status], `status-dot ${status}`));
+          const li = el('li');
+          li.append(row);
+          return li;
+        }),
+      );
+      $('lesson-tasks').hidden = false;
+    }
+
+    // The whole lesson with its tasks as one Markdown document, ready to paste into an AI chat.
+    const markdown = [
+      `# ${course.title}: lekcja ${lesson.number}. ${lesson.title}`,
+      `Tematy: ${lesson.topics.join(', ')}`,
+      lesson.body_md,
+      ...lessonTasks.map((t) => [`## Zadanie ${t.number}: ${t.title}`, t.body_md, t.predict_code && `\`\`\`python\n${t.predict_code}\`\`\``, t.starter_code && `Kod startowy:\n\`\`\`python\n${t.starter_code}\`\`\``].filter(Boolean).join('\n\n')),
+    ].join('\n\n');
+    const fileName = `${course.slug}-lekcja-${String(lesson.number).padStart(2, '0')}.md`;
+
+    $('lesson-export').hidden = false;
+    $('copy-md').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(markdown);
+        $('copy-md').textContent = 'Skopiowano';
+      } catch {
+        $('copy-md').textContent = 'Nie udało się, użyj „Pobierz .md”';
+      }
+      setTimeout(() => ($('copy-md').textContent = 'Kopiuj lekcję'), 2500);
+    });
+    $('download-md').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
+      link.download = fileName;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    });
+  });
+</script>
+
+<style>
+  .topics {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 16px 0 40px;
+  }
+  .topics :global(li) {
+    margin: 0;
+    font-size: 13px;
+    padding: 3px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text-2);
+    background: var(--surface);
+  }
+  .prose :global(h2) {
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+  .prose :global(h2:first-child) {
+    border-top: 0;
+    padding-top: 0;
+    margin-top: 0;
+  }
+  .prose :global(.code-block) {
+    position: relative;
+  }
+  .prose :global(.copy) {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    height: 26px;
+    padding: 0 10px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .prose :global(.code-block:hover .copy),
+  .prose :global(.copy:focus-visible) {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .prose :global(.copy) {
+      opacity: 1;
+    }
+  }
+  .tasks {
+    margin-top: 56px;
+    padding: 24px 24px 12px;
+  }
+  .tasks ol {
+    margin-top: 12px;
+  }
+  .export {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px 24px;
+    flex-wrap: wrap;
+    margin-top: 32px;
+    padding: 20px 0;
+    border-top: 1px solid var(--line);
+  }
+  .export .muted {
+    margin: 4px 0 0;
+    font-size: 14px;
+    max-width: 52ch;
+  }
+  .export-buttons {
+    display: flex;
+    gap: 8px;
+  }
+</style>

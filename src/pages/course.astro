@@ -1,0 +1,121 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { url } from '../lib/url';
+---
+
+<Layout title="Kurs">
+  <a class="back" href={url()}>← Kursy</a>
+  <p class="eyebrow" id="course-meta"></p>
+  <h1 id="course-title"></h1>
+  <p class="lead" id="course-description"></p>
+  <div id="lessons" class="lessons"><p class="loading">Ładuję lekcje…</p></div>
+</Layout>
+
+<script>
+  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, taskPath } from '../lib/content';
+  import { taskStatuses } from '../lib/progress';
+  import { param } from '../lib/url';
+
+  const el = (tag: string, text = '', className = '') => {
+    const e = document.createElement(tag);
+    e.textContent = text;
+    if (className) e.className = className;
+    return e;
+  };
+  const STATUS_TEXT = { done: 'zaliczone', started: 'w trakcie', todo: 'do zrobienia' };
+
+  requireAccess().then(async (access) => {
+    if (!access) return;
+    const list = document.getElementById('lessons')!;
+    const course = await courseBySlug(param('c'));
+    if (!course) {
+      list.replaceChildren(el('p', 'Nie znaleziono kursu albo nie masz do niego dostępu.', 'muted'));
+      return;
+    }
+    document.title = `${course.title} · Kurs programowania`;
+    document.getElementById('course-meta')!.textContent = [course.level, 'Python'].filter(Boolean).join(' · ');
+    document.getElementById('course-title')!.textContent = course.title;
+    document.getElementById('course-description')!.textContent = course.description;
+
+    const [ls, ts] = await Promise.all([lessons(course.id), tasks(course.id)]);
+    const statuses = await taskStatuses(ts.map((t) => t.id));
+    if (!ls.length) {
+      list.replaceChildren(el('p', 'Nie masz jeszcze odblokowanych lekcji.', 'muted'));
+      return;
+    }
+
+    list.replaceChildren(
+      ...ls.map((lesson) => {
+        const lessonTasks = ts.filter((t) => t.lesson_number === lesson.number);
+        const done = lessonTasks.filter((t) => statuses.get(t.id) === 'done').length;
+        const card = el('section', '', 'lesson card');
+
+        const title = el('h2');
+        const link = el('a', lesson.title) as HTMLAnchorElement;
+        link.href = lessonPath(course, lesson.number);
+        title.append(link);
+        card.append(el('p', `Lekcja ${String(lesson.number).padStart(2, '0')}`, 'eyebrow'), title, el('p', lesson.topics.join(' · '), 'topics'));
+
+        const progress = el('div', '', 'progress');
+        const bar = el('div', '', 'progress-bar');
+        const fill = el('span');
+        bar.append(fill);
+        progress.append(bar, el('span', `${done}/${lessonTasks.length}`, 'progress-count'));
+        card.append(progress);
+        requestAnimationFrame(() => (fill.style.width = `${lessonTasks.length ? (100 * done) / lessonTasks.length : 0}%`));
+
+        const rows = el('ol', '', 'row-list tasks');
+        for (const t of lessonTasks) {
+          const status = statuses.get(t.id) ?? 'todo';
+          const row = el('a', '', 'row') as HTMLAnchorElement;
+          row.href = taskPath(course, t);
+          row.append(el('span', String(t.number), 'row-number'), el('span', t.title, 'row-title'), el('span', STATUS_TEXT[status], `status-dot ${status}`));
+          const li = el('li');
+          li.append(row);
+          rows.append(li);
+        }
+        card.append(rows);
+        const notes = el('a', 'Notatki z lekcji →', 'notes') as HTMLAnchorElement;
+        notes.href = lessonPath(course, lesson.number);
+        card.append(notes);
+        return card;
+      }),
+    );
+  });
+</script>
+
+<style>
+  .lessons {
+    display: grid;
+    gap: 20px;
+    margin-top: 40px;
+  }
+  .lessons :global(.lesson) {
+    padding: 28px 28px 20px;
+  }
+  .lessons :global(.lesson h2) {
+    margin: 6px 0;
+    font-size: 1.5rem;
+  }
+  .lessons :global(.lesson h2 a) {
+    color: var(--text);
+  }
+  .lessons :global(.topics) {
+    color: var(--text-2);
+    font-size: 14.5px;
+    margin-bottom: 18px;
+  }
+  .lessons :global(.tasks) {
+    margin: 20px 0 8px;
+  }
+  .lessons :global(.notes) {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 14px;
+  }
+  @media (max-width: 640px) {
+    .lessons :global(.lesson) {
+      padding: 22px 18px 16px;
+    }
+  }
+</style>

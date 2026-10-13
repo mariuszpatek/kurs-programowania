@@ -1,0 +1,229 @@
+---
+// Editor with Run / Check buttons and a console. Markup only: src/lib/workspace.ts mounts it
+// once the task has been loaded. Without tests it works as a sandbox (run only).
+---
+
+<div class="workspace" hidden>
+  <div class="ide card">
+    <div class="ide-bar">
+      <span class="file"><span class="dot"></span>twoj_kod.py</span>
+      <span class="status" role="status">Ładuję Pythona…</span>
+      <button class="reset ghost" hidden title="Wróć do kodu startowego">Od nowa</button>
+    </div>
+
+    <div class="editor" aria-label="Edytor kodu"></div>
+
+    <details class="stdin">
+      <summary>Dane dla <code>input()</code></summary>
+      <label for="stdin" class="hint">Jeśli program pyta o dane, wpisz tu odpowiedzi, każdą w osobnej linijce.</label>
+      <textarea id="stdin" rows="3" spellcheck="false"></textarea>
+    </details>
+
+    <div class="actions">
+      <button class="run" disabled>Uruchom <kbd>Ctrl ↵</kbd></button>
+      <button class="check primary" disabled hidden>Sprawdź</button>
+    </div>
+
+    <div class="console" hidden>
+      <div class="console-head">
+        <span>Wynik</span>
+        <span class="time"></span>
+      </div>
+      <pre class="terminal"></pre>
+      <div class="error" hidden></div>
+    </div>
+  </div>
+
+  <div class="results" hidden aria-live="polite">
+    <div class="verdict"></div>
+    <ul></ul>
+  </div>
+</div>
+
+<style>
+  .ide {
+    overflow: hidden;
+  }
+  .ide-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-right: 8px;
+    height: 42px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    padding: 0 16px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    margin-bottom: -1px;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .status {
+    flex: 1;
+    font-size: 12.5px;
+    color: var(--text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .reset {
+    height: 28px;
+    font-size: 13px;
+  }
+  .editor :global(.cm-editor) {
+    min-height: 280px;
+    max-height: 62vh;
+  }
+  .stdin {
+    border-top: 1px solid var(--line);
+    padding: 10px 16px;
+    font-size: 13.5px;
+  }
+  .stdin summary {
+    cursor: pointer;
+    color: var(--text-2);
+  }
+  .stdin code {
+    font-size: 12px;
+  }
+  .stdin .hint {
+    display: block;
+    color: var(--text-2);
+    margin: 8px 0 6px;
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+  }
+  .console {
+    background: var(--console);
+    color: var(--console-text);
+  }
+  .console-head {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 16px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--console-2);
+  }
+  .terminal {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--console-text);
+    padding: 8px 16px 16px;
+    white-space: pre;
+    font-size: 14px;
+  }
+  .terminal.empty {
+    color: var(--console-2);
+  }
+  .error {
+    margin: 8px 16px 16px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: color-mix(in srgb, #ff6b5e 12%, transparent);
+    border: 1px solid color-mix(in srgb, #ff6b5e 30%, transparent);
+    font-size: 14px;
+  }
+  .error :global(.where) {
+    font-weight: 600;
+    color: #ffb4ab;
+  }
+  .error :global(code) {
+    display: block;
+    margin: 8px 0;
+    padding: 6px 10px;
+    background: rgb(0 0 0 / 0.3);
+    border: 0;
+    color: var(--console-text);
+  }
+  .error :global(.message) {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #ffb4ab;
+  }
+  .error :global(.hint) {
+    margin-top: 8px;
+    color: var(--console-text);
+  }
+  .results {
+    margin-top: 20px;
+  }
+  .verdict {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 14px;
+  }
+  .verdict :global(strong) {
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
+  }
+  .verdict.passed :global(strong) {
+    color: var(--ok);
+  }
+  .verdict :global(span) {
+    color: var(--text-2);
+    font-size: 14px;
+  }
+  .results ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: 1px solid var(--line);
+  }
+  .results :global(li) {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    column-gap: 6px;
+    margin: 0;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14.5px;
+  }
+  .results :global(.icon) {
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .results :global(li.ok .icon) {
+    color: var(--ok);
+  }
+  .results :global(li.ok .name) {
+    color: var(--text-2);
+  }
+  .results :global(li.bad .icon) {
+    color: var(--bad);
+  }
+  .results :global(li.bad .name) {
+    font-weight: 500;
+  }
+  .results :global(.message) {
+    grid-column: 2;
+    color: var(--text-2);
+    margin-top: 2px;
+    font-size: 14px;
+  }
+</style>

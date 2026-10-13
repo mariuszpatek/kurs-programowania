@@ -1,0 +1,93 @@
+---
+import { url } from '../lib/url';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  wide?: boolean;
+  /** Only the login page is public; every other page requires a signed-in, enrolled account. */
+  isPublic?: boolean;
+}
+const { title, wide = false, isPublic = false } = Astro.props;
+const path = Astro.url.pathname;
+const current = (p: string) => (path.startsWith(p) ? 'page' : undefined);
+const coursesActive = path === url() || ['course/', 'lesson/', 'task/'].some((p) => path.startsWith(url(p)));
+---
+
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
+    <title>{title} · Kurs programowania</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="logo" href={url()}>
+          <span class="prompt">&gt;_</span>
+          <span>Kurs programowania</span>
+        </a>
+        <nav hidden id="site-nav">
+          <a href={url()} aria-current={coursesActive ? 'page' : undefined}>Kursy</a>
+          <a href={url('sandbox/')} aria-current={current(url('sandbox/'))}>Piaskownica</a>
+          <a href={url('teacher/')} aria-current={current(url('teacher/'))} id="nav-teacher" hidden>Panel</a>
+          <a href={url('account/')} aria-current={current(url('account/'))}>Konto</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class:list={['page', { wide }]}>
+      {
+        isPublic ? (
+          <slot />
+        ) : (
+          <>
+            <p class="loading" id="access-loading">
+              Sprawdzam dostęp…
+            </p>
+            <div id="no-access" class="notice" hidden>
+              <p class="eyebrow">Brak dostępu</p>
+              <h1>To konto nie jest zapisane na żaden kurs</h1>
+              <p class="muted">
+                Zalogowano jako <strong id="no-access-email" />. Jeśli to pomyłka, napisz do nauczyciela, żeby dopisał ten adres do kursu.
+              </p>
+              <button id="no-access-logout">Wyloguj i użyj innego adresu</button>
+            </div>
+            <div id="page-content" hidden>
+              <slot />
+            </div>
+          </>
+        )
+      }
+    </main>
+
+    {
+      !isPublic && (
+        <script>
+          import { requireAccess } from '../lib/content';
+          import { supabase, currentUser } from '../lib/supabase';
+          import { url } from '../lib/url';
+
+          requireAccess().then(async (access) => {
+            document.getElementById('access-loading')!.hidden = true;
+            if (!access) {
+              document.getElementById('no-access-email')!.textContent = (await currentUser())?.email ?? '';
+              document.getElementById('no-access')!.hidden = false;
+              document.getElementById('no-access-logout')!.addEventListener('click', async () => {
+                await supabase.auth.signOut();
+                location.href = url('login/');
+              });
+              return;
+            }
+            document.getElementById('site-nav')!.hidden = false;
+            document.getElementById('nav-teacher')!.hidden = !access.isTeacher;
+            document.getElementById('page-content')!.hidden = false;
+          });
+        </script>
+      )
+    }
+  </body>
+</html>

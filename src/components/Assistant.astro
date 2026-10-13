@@ -1,0 +1,65 @@
+---
+// AI tutor chat. Shown only when PUBLIC_ASSISTANT=1 (after the edge function is deployed).
+// src/lib/assistant.ts mounts it once the task has been loaded.
+const enabled = import.meta.env.PUBLIC_ASSISTANT === '1';
+---
+
+{
+  enabled && (
+    <section class="assistant" hidden>
+      <p class="eyebrow">Asystent</p>
+      <p class="muted intro">Podpowiada i tłumaczy błędy, ale nie poda gotowego rozwiązania. Widzi Twój kod i wynik ostatniego sprawdzenia.</p>
+      <div class="chat" />
+      <form>
+        <textarea id="assistant-question" rows="2" placeholder="Np. Co znaczy ten błąd? Od czego zacząć?" required />
+        <button class="primary" type="submit">
+          Zapytaj
+        </button>
+      </form>
+    </section>
+  )
+}
+
+<style>
+  .assistant {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+  .intro {
+    font-size: 14px;
+    margin: 6px 0 14px;
+  }
+  .chat {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 420px;
+    overflow-y: auto;
+    margin-bottom: 12px;
+  }
+  .chat :global(.message) {
+    padding: 9px 13px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  .chat :global(.message p) {
+    margin: 4px 0;
+  }
+  .chat :global(.user) {
+    align-self: flex-end;
+    background: var(--button);
+    color: var(--button-text);
+    max-width: 85%;
+    white-space: pre-wrap;
+  }
+  .chat :global(.assistant-reply) {
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  form {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+</style>
