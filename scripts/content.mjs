@@ -4,6 +4,7 @@
 //   <course>/course.yaml              slug, title, language, level, description
 //   <course>/tutor-prompt.md          AI tutor prompt; {{topics}} = topics of lessons so far
 //   <course>/lessons/01.md            frontmatter: number, title, topics, draft?
+//   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
 //   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?, draft?
 //   <course>/tasks/01/01-name.test.py tests
 //   <course>/solutions/01/01-name.py  reference solution (.txt for predict tasks); 01-name.bad-*.py wrong ones
@@ -50,10 +51,19 @@ export function loadCourse(dir) {
   course.tutor_prompt = readIfExists(join(dir, 'tutor-prompt.md'))?.trim() ?? '';
 
   const lessons = listDir(join(dir, 'lessons'))
-    .filter((f) => f.endsWith('.md'))
+    .filter((f) => f.endsWith('.md') && !f.endsWith('.teacher.md'))
     .map((f) => {
       const { meta, body } = frontmatter(read(join(dir, 'lessons', f)), f);
       return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: body, draft: Boolean(meta.draft) };
+    });
+
+  // lessons/01.teacher.md belongs to the lesson whose file is lessons/01.md
+  const teacherNotes = listDir(join(dir, 'lessons'))
+    .filter((f) => f.endsWith('.teacher.md'))
+    .map((f) => {
+      const lesson = lessons.find((l) => pad(l.number) === f.slice(0, -'.teacher.md'.length));
+      if (!lesson) throw new Error(`${f}: no lesson with this number`);
+      return { lesson_number: lesson.number, body_md: read(join(dir, 'lessons', f)).trim() };
     });
 
   const tasks = [];
@@ -83,5 +93,5 @@ export function loadCourse(dir) {
       });
     }
   }
-  return { dir, course, lessons, tasks };
+  return { dir, course, lessons, tasks, teacherNotes };
 }

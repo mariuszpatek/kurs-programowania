@@ -400,6 +400,49 @@ blockquote {
   color: var(--text-2);
 }
 
+/* notes visible to the teacher only */
+.teacher-notes {
+  margin: 0 0 32px;
+  border: 1px dashed color-mix(in srgb, #c27a12 55%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, #c27a12 5%, var(--surface));
+}
+
+.teacher-notes > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.teacher-notes > summary::-webkit-details-marker {
+  display: none;
+}
+
+.teacher-notes > summary::before {
+  content: '▸';
+  color: #b06a08;
+  transition: transform 0.15s;
+}
+
+.teacher-notes[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.teacher-notes .teacher-only {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: #b06a08;
+}
+
+.teacher-notes .teacher-notes-body {
+  padding: 0 18px 8px;
+}
+
 /* token classes from src/lib/languages/highlight.ts */
 .tok-keyword {
   color: var(--code-keyword);

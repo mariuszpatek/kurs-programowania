@@ -72,7 +72,7 @@ const check = (what, { error }) => {
   }
 };
 
-for (const { course, lessons, tasks } of courses) {
+for (const { course, lessons, tasks, teacherNotes } of courses) {
   const saved = await db
     .from('lms_courses')
     .upsert(
@@ -96,9 +96,22 @@ for (const { course, lessons, tasks } of courses) {
   if (lessonRows.length) check('lessons', await db.from('lms_lessons').upsert(lessonRows, { onConflict: 'course_id,number' }));
   if (taskRows.length) check('tasks', await db.from('lms_tasks').upsert(taskRows, { onConflict: 'course_id,slug' }));
 
+  // Teacher notes live in their own table that only teachers can read (RLS).
+  const noteRows = teacherNotes.map((n) => ({ ...n, course_id: courseId }));
+  if (noteRows.length) check('teacher notes', await db.from('lms_teacher_notes').upsert(noteRows, { onConflict: 'course_id,lesson_number' }));
+  const withNotes = noteRows.map((n) => n.lesson_number);
+  check(
+    'teacher notes cleanup',
+    await db
+      .from('lms_teacher_notes')
+      .delete()
+      .eq('course_id', courseId)
+      .not('lesson_number', 'in', `(${withNotes.length ? withNotes.join(',') : -1})`),
+  );
+
   // Tasks removed from the folder are reported, not deleted: deleting would also delete students' attempts.
   const { data: remote } = await db.from('lms_tasks').select('slug').eq('course_id', courseId);
   const orphans = (remote ?? []).map((r) => r.slug).filter((s) => !taskRows.some((t) => t.slug === s));
   if (orphans.length) console.warn(`  ! w bazie są zadania, których nie ma w folderze (zostawione): ${orphans.join(', ')}`);
-  console.log(`  wgrano: ${course.slug}`);
+  console.log(`  wgrano: ${course.slug}${noteRows.length ? `, notatki nauczyciela do lekcji: ${withNotes.join(', ')}` : ''}`);
 }

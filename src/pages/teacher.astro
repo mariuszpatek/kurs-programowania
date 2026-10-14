@@ -27,17 +27,29 @@ import Layout from '../layouts/Layout.astro';
     <p class="form-message" id="add-message" role="status"></p>
   </section>
 
+  <nav class="panel-nav" id="panel-nav" hidden>
+    <a href="#students">Uczniowie</a>
+    <a href="#lesson-notes">Notatki do lekcji</a>
+  </nav>
+
   <div id="students" class="students"></div>
+
+  <section class="lesson-notes" id="lesson-notes" hidden>
+    <h2>Notatki do lekcji</h2>
+    <p class="muted">Plan, dodatkowe przykłady i odpowiedzi. Widzi je tylko nauczyciel, także na górze strony każdej lekcji.</p>
+    <div id="lesson-notes-list"></div>
+  </section>
 </Layout>
 
 <script>
-  import { requireAccess, lessons, tasks, type Course, type Enrollment, type Task } from '../lib/content';
+  import { requireAccess, lessons, tasks, teacherNotes, lessonPath, type Course, type Enrollment, type Lesson, type Task } from '../lib/content';
+  import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { supabase } from '../lib/supabase';
 
   type TestResult = { name: string; ok: boolean };
   type PredictLine = { student: string | null; actual: string | null; ok: boolean };
   type Attempt = { email: string; task_id: string; code: string; passed: boolean; results: unknown; created_at: string };
-  type CourseData = { course: Course; lessonCount: number; tasks: Task[] };
+  type CourseData = { course: Course; lessonCount: number; lessons: Lesson[]; tasks: Task[]; notes: Map<number, string> };
 
   const $ = (id: string) => document.getElementById(id)!;
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', className = '') => {
@@ -154,7 +166,7 @@ import Layout from '../layouts/Layout.astro';
     for (const t of data.tasks) {
       const list = mine.filter((a) => a.task_id === t.id);
       const passed = list.some((a) => a.passed);
-      const locked = t.lesson_number > e.unlocked_through;
+      const locked = t.draft || t.lesson_number > e.unlocked_through;
       const row = el('details', '', `task-row ${locked ? 'locked' : ''}`);
       const summary = el('summary');
       summary.append(
@@ -162,7 +174,7 @@ import Layout from '../layouts/Layout.astro';
         el('span', t.title, 'row-title'),
         el(
           'span',
-          locked ? 'zablokowane' : list.length ? (passed ? 'zaliczone' : 'w trakcie') : 'nie zaczęte',
+          t.draft ? 'szkic, uczeń nie widzi' : locked ? 'zablokowane' : list.length ? (passed ? 'zaliczone' : 'w trakcie') : 'nie zaczęte',
           `status-dot ${passed ? 'done' : list.length ? 'started' : ''}`,
         ),
         el('span', list.length ? `${list.length} ${plural(list.length)}` : '', 'count'),
@@ -181,6 +193,29 @@ import Layout from '../layouts/Layout.astro';
     );
     card.append(footer);
     return card;
+  }
+
+  function showLessonNotes() {
+    const blocks = [...courseData.values()].flatMap(({ course, lessons: ls, notes }) =>
+      ls
+        .filter((l) => notes.has(l.number))
+        .map((l) => {
+          const item = el('details', '', 'note-item');
+          const summary = el('summary');
+          summary.append(el('span', `${course.title} · Lekcja ${l.number}`, 'eyebrow'), el('span', l.title, 'note-title'));
+          const body = el('div', '', 'prose');
+          body.innerHTML = renderMarkdown(notes.get(l.number)!);
+          enhanceCodeBlocks(body);
+          const open = el('a', 'Otwórz lekcję →', 'note-link') as HTMLAnchorElement;
+          open.href = lessonPath(course, l.number);
+          item.append(summary, open, body);
+          return item;
+        }),
+    );
+    if (!blocks.length) return;
+    $('lesson-notes-list').replaceChildren(...blocks);
+    $('lesson-notes').hidden = false;
+    $('panel-nav').hidden = false;
   }
 
   async function load() {
@@ -210,8 +245,8 @@ import Layout from '../layouts/Layout.astro';
     }
     const entries = await Promise.all(
       access.courses.map(async (course) => {
-        const [ls, ts] = await Promise.all([lessons(course.id), tasks(course.id)]);
-        return [course.id, { course, lessonCount: ls.length, tasks: ts }] as const;
+        const [ls, ts, notes] = await Promise.all([lessons(course.id), tasks(course.id), teacherNotes(course.id)]);
+        return [course.id, { course, lessonCount: ls.length, lessons: ls, tasks: ts, notes }] as const;
       }),
     );
     courseData = new Map(entries);
@@ -223,6 +258,7 @@ import Layout from '../layouts/Layout.astro';
       }),
     );
     $('add-student').hidden = false;
+    showLessonNotes();
     await load();
   });
 
@@ -253,6 +289,61 @@ import Layout from '../layouts/Layout.astro';
 </script>
 
 <style>
+  .panel-nav {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .panel-nav a {
+    font-size: 14px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text-2);
+    background: var(--surface);
+  }
+  .panel-nav a:hover {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .students,
+  .lesson-notes {
+    scroll-margin-top: 80px;
+  }
+  .lesson-notes {
+    margin-top: 56px;
+  }
+  .lesson-notes h2 {
+    margin-bottom: 4px;
+  }
+  #lesson-notes-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  #lesson-notes-list :global(.note-item) {
+    border: 1px dashed color-mix(in srgb, #c27a12 55%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, #c27a12 5%, var(--surface));
+    padding: 0 20px;
+  }
+  #lesson-notes-list :global(.note-item > summary) {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 0;
+    cursor: pointer;
+    list-style: none;
+  }
+  #lesson-notes-list :global(.note-title) {
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+  #lesson-notes-list :global(.note-link) {
+    display: inline-block;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
   .add {
     margin-top: 32px;
     padding: 20px 24px;

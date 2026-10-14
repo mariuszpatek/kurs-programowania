@@ -63,6 +63,12 @@ export async function courseBySlug(slug: string): Promise<Course | null> {
   return data;
 }
 
+/** Teacher-only notes per lesson number; empty for students (RLS returns no rows). */
+export async function teacherNotes(courseId: string): Promise<Map<number, string>> {
+  const { data } = await supabase.from('lms_teacher_notes').select('lesson_number, body_md').eq('course_id', courseId);
+  return new Map((data ?? []).map((n) => [n.lesson_number, n.body_md]));
+}
+
 export async function lessons(courseId: string): Promise<Lesson[]> {
   const { data } = await supabase.from('lms_lessons').select('*').eq('course_id', courseId).order('number');
   return data ?? [];

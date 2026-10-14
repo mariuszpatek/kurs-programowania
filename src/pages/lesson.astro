@@ -17,6 +17,11 @@ import Layout from '../layouts/Layout.astro';
         <p class="lesson-meta" id="lesson-meta"></p>
       </header>
 
+      <details class="teacher-notes" id="teacher-notes" hidden>
+        <summary>Notatki dla nauczyciela <span class="teacher-only">tylko Ty to widzisz</span></summary>
+        <div class="prose teacher-notes-body" id="teacher-notes-body"></div>
+      </details>
+
       <details class="toc-mobile" id="toc-mobile" hidden>
         <summary>Spis treści</summary>
         <ol class="toc-list"></ol>
@@ -54,7 +59,7 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-  import { requireAccess, courseBySlug, lessons, tasks, coursePath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
+  import { requireAccess, courseBySlug, lessons, tasks, teacherNotes, coursePath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { splitIntoSections, mountOutline, readingMinutes } from '../lib/lesson-outline';
   import { languageById } from '../lib/languages';
@@ -134,6 +139,15 @@ import Layout from '../layouts/Layout.astro';
     $('lesson-number').textContent = `Lekcja ${String(lesson.number).padStart(2, '0')}`;
     $('lesson-title').textContent = lesson.title;
     if (lesson.draft) $('lesson-title').append(el('span', 'szkic: widzisz tylko Ty', 'draft-badge'));
+    if (access.isTeacher) {
+      const notes = (await teacherNotes(course.id)).get(lesson.number);
+      if (notes) {
+        $('teacher-notes-body').innerHTML = renderMarkdown(notes);
+        enhanceCodeBlocks($('teacher-notes-body'));
+        $('teacher-notes').hidden = false;
+      }
+    }
+
     $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
     enhanceCodeBlocks($('lesson-body'));
     const outline = splitIntoSections($('lesson-body'));
