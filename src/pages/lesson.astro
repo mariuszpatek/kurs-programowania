@@ -2,42 +2,61 @@
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="Lekcja">
-  <a class="back" id="back" href="#">← Kurs</a>
-  <p class="eyebrow" id="lesson-number"></p>
-  <h1 id="lesson-title"></h1>
-  <ul class="topics" id="lesson-topics"></ul>
-  <article class="prose" id="lesson-body"><p class="loading">Ładuję lekcję…</p></article>
+<Layout title="Lekcja" wide>
+  <div class="lesson-layout">
+    <aside class="toc" id="toc" hidden aria-label="Spis treści">
+      <p class="eyebrow">W tej lekcji</p>
+      <ol class="toc-list"></ol>
+    </aside>
 
-  <section class="tasks card" id="lesson-tasks" hidden>
-    <p class="eyebrow">Zadania po tej lekcji</p>
-    <ol class="row-list"></ol>
-  </section>
+    <div class="lesson-main">
+      <a class="back" id="back" href="#">← Kurs</a>
+      <header class="lesson-header">
+        <p class="eyebrow" id="lesson-number"></p>
+        <h1 id="lesson-title"></h1>
+        <p class="lesson-meta" id="lesson-meta"></p>
+      </header>
 
-  <section class="prose tutor" id="lesson-tutor" hidden>
-    <h2>Pomoc między lekcjami: AI jako korepetytor</h2>
-    <p>
-      Gdy utkniesz, możesz zapytać ChatGPT albo Claude, ale tak, żeby uczył, a nie robił za Ciebie. Skopiuj poniższy tekst, uzupełnij pola w nawiasach
-      <code>[]</code> i wklej jako pierwszą wiadomość w nowej rozmowie. Lista tematów jest zawsze aktualna, więc po każdej lekcji bierz prompt z najnowszej.
-    </p>
-    <div id="tutor-prompt"></div>
-  </section>
+      <details class="toc-mobile" id="toc-mobile" hidden>
+        <summary>Spis treści</summary>
+        <ol class="toc-list"></ol>
+      </details>
 
-  <section class="export" id="lesson-export" hidden>
-    <div>
-      <p class="eyebrow">Lekcja jako tekst</p>
-      <p class="muted">Cała lekcja z zadaniami w Markdownie. Możesz ją wkleić do ChatGPT albo Claude i zadawać pytania o materiał.</p>
+      <article class="prose" id="lesson-body"><p class="loading">Ładuję lekcję…</p></article>
+
+      <section class="tasks card" id="lesson-tasks" hidden>
+        <p class="eyebrow">Zadania po tej lekcji</p>
+        <ol class="row-list"></ol>
+      </section>
+
+      <section class="prose tutor" id="lesson-tutor" hidden>
+        <h2>Pomoc między lekcjami: AI jako korepetytor</h2>
+        <p>
+          Gdy utkniesz, możesz zapytać ChatGPT albo Claude, ale tak, żeby uczył, a nie robił za Ciebie. Skopiuj poniższy tekst, uzupełnij pola w
+          nawiasach <code>[]</code> i wklej jako pierwszą wiadomość w nowej rozmowie. Lista tematów jest zawsze aktualna, więc po każdej lekcji bierz
+          prompt z najnowszej.
+        </p>
+        <div id="tutor-prompt"></div>
+      </section>
+
+      <section class="export" id="lesson-export" hidden>
+        <div>
+          <p class="eyebrow">Lekcja jako tekst</p>
+          <p class="muted">Cała lekcja z zadaniami w Markdownie. Możesz ją wkleić do ChatGPT albo Claude i zadawać pytania o materiał.</p>
+        </div>
+        <div class="export-buttons">
+          <button id="copy-md" class="primary">Kopiuj lekcję</button>
+          <button id="download-md">Pobierz .md</button>
+        </div>
+      </section>
     </div>
-    <div class="export-buttons">
-      <button id="copy-md" class="primary">Kopiuj lekcję</button>
-      <button id="download-md">Pobierz .md</button>
-    </div>
-  </section>
+  </div>
 </Layout>
 
 <script>
   import { requireAccess, courseBySlug, lessons, tasks, coursePath, taskPath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
+  import { splitIntoSections, mountOutline, readingMinutes } from '../lib/lesson-outline';
   import { languageById } from '../lib/languages';
   import { taskStatuses } from '../lib/progress';
   import { param } from '../lib/url';
@@ -50,6 +69,8 @@ import Layout from '../layouts/Layout.astro';
     return e;
   };
   const STATUS_TEXT = { done: 'zaliczone', started: 'w trakcie', todo: 'do zrobienia' };
+  const taskCount = (n: number) =>
+    n === 1 ? '1 zadanie' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? `${n} zadania` : `${n} zadań`;
   const fence = (lang: string, code: string) => `\`\`\`${lang}\n${code.replace(/\n$/, '')}\n\`\`\``;
 
   /** The whole lesson with its tasks as one Markdown document, ready to paste into an AI chat. */
@@ -122,12 +143,13 @@ import Layout from '../layouts/Layout.astro';
     $('back').textContent = `← ${course.title}`;
     $('lesson-number').textContent = `Lekcja ${String(lesson.number).padStart(2, '0')}`;
     $('lesson-title').textContent = lesson.title;
-    $('lesson-topics').replaceChildren(...lesson.topics.map((t) => el('li', t)));
     $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
     enhanceCodeBlocks($('lesson-body'));
+    const outline = splitIntoSections($('lesson-body'));
 
     const lessonTasks = (await tasks(course.id)).filter((t) => t.lesson_number === lesson.number);
     if (lessonTasks.length) showTasks(course, lessonTasks, await taskStatuses(lessonTasks.map((t) => t.id)));
+    $('lesson-meta').textContent = `ok. ${readingMinutes($('lesson-body'))} min czytania · ${taskCount(lessonTasks.length)}`;
 
     if (course.tutor_prompt) {
       $('tutor-prompt').innerHTML = renderMarkdown(fence('', tutorPrompt(course, courseLessons, lesson.number)));
@@ -135,43 +157,146 @@ import Layout from '../layouts/Layout.astro';
       $('lesson-tutor').hidden = false;
     }
 
+    const extra = [
+      ...(lessonTasks.length ? [{ id: 'lesson-tasks', title: 'Zadania' }] : []),
+      ...(course.tutor_prompt ? [{ id: 'lesson-tutor', title: 'Pomoc z AI' }] : []),
+    ];
+    if (outline.length > 1) {
+      mountOutline([...document.querySelectorAll<HTMLOListElement>('.toc-list')], outline, extra);
+      $('toc').hidden = false;
+      $('toc-mobile').hidden = false;
+      // on phones, close the table of contents after jumping to a section
+      $('toc-mobile').addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('a')) ($('toc-mobile') as HTMLDetailsElement).open = false;
+      });
+    }
+
     setUpExport(lessonAsMarkdown(course, lesson, lessonTasks), `${course.slug}-lekcja-${String(lesson.number).padStart(2, '0')}.md`);
   });
 </script>
 
 <style>
-  .topics {
+  .lesson-layout {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 720px);
+    justify-content: center;
+    gap: 64px;
+    align-items: start;
+  }
+  .lesson-layout:has(.toc[hidden]) {
+    grid-template-columns: minmax(0, 720px);
+  }
+  .toc {
+    position: sticky;
+    top: 88px;
+    padding-top: 92px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+  .toc .eyebrow {
+    margin-bottom: 10px;
+  }
+  .toc-list {
     list-style: none;
     padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 16px 0 40px;
-  }
-  .topics :global(li) {
     margin: 0;
-    font-size: 13px;
-    padding: 3px 10px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
+    border-left: 1px solid var(--line);
+  }
+  .toc-list :global(li) {
+    margin: 0;
+  }
+  .toc-list :global(a) {
+    display: flex;
+    gap: 10px;
+    padding: 5px 0 5px 14px;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+    font-size: 13.5px;
+    line-height: 1.4;
     color: var(--text-2);
+  }
+  .toc-list :global(a:hover) {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .toc-list :global(a.active) {
+    color: var(--text);
+    border-left-color: var(--accent);
+    font-weight: 500;
+  }
+  .toc-list :global(.toc-number) {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-3);
+    padding-top: 1px;
+    min-width: 18px;
+  }
+  .toc-mobile {
+    display: none;
+    margin: 0 0 32px;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
     background: var(--surface);
   }
-  .prose :global(h2) {
-    padding-top: 28px;
-    border-top: 1px solid var(--line);
+  .toc-mobile summary {
+    cursor: pointer;
+    font-weight: 500;
   }
-  .prose :global(h2:first-child) {
-    border-top: 0;
-    padding-top: 0;
-    margin-top: 0;
+  .toc-mobile .toc-list {
+    margin-top: 10px;
   }
+
+  .lesson-header {
+    padding-bottom: 28px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .lesson-meta {
+    color: var(--text-3);
+    font-size: 14px;
+    margin: 0;
+  }
+
+  /* numbered sections built by splitIntoSections() */
+  .prose :global(.lesson-section) {
+    padding: 40px 0 16px;
+    border-bottom: 1px solid var(--line);
+    scroll-margin-top: 72px;
+  }
+  .prose :global(.lesson-section:last-child) {
+    border-bottom: 0;
+  }
+  .prose :global(.lesson-section > h2) {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin: 0 0 18px;
+    font-size: 1.55rem;
+  }
+  .prose :global(.section-number) {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .prose :global(h3) {
+    margin-top: 32px;
+  }
+  .prose :global(p),
+  .prose :global(li) {
+    max-width: 68ch;
+  }
+
   .tutor {
-    margin-top: 48px;
+    margin-top: 56px;
+    scroll-margin-top: 72px;
   }
-  .tutor h2:first-child {
-    border-top: 1px solid var(--line);
-    padding-top: 28px;
+  .tutor h2 {
+    margin-top: 0;
+    font-size: 1.55rem;
   }
   .tutor :global(pre) {
     white-space: pre-wrap;
@@ -180,8 +305,9 @@ import Layout from '../layouts/Layout.astro';
     font-size: 13.5px;
   }
   .tasks {
-    margin-top: 56px;
+    margin-top: 48px;
     padding: 24px 24px 12px;
+    scroll-margin-top: 72px;
   }
   .tasks ol {
     margin-top: 12px;
@@ -192,8 +318,8 @@ import Layout from '../layouts/Layout.astro';
     align-items: center;
     gap: 16px 24px;
     flex-wrap: wrap;
-    margin-top: 32px;
-    padding: 20px 0;
+    margin-top: 40px;
+    padding: 24px 0;
     border-top: 1px solid var(--line);
   }
   .export .muted {
@@ -204,5 +330,18 @@ import Layout from '../layouts/Layout.astro';
   .export-buttons {
     display: flex;
     gap: 8px;
+  }
+
+  @media (max-width: 1100px) {
+    .lesson-layout,
+    .lesson-layout:has(.toc[hidden]) {
+      grid-template-columns: minmax(0, 720px);
+    }
+    .toc {
+      display: none;
+    }
+    .toc-mobile:not([hidden]) {
+      display: block;
+    }
   }
 </style>

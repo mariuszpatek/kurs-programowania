@@ -26,9 +26,9 @@ const coursesActive = path === url() || ['course/', 'lesson/', 'task/'].some((p)
   <body>
     <header class="site-header">
       <div class="site-header-inner">
-        <a class="logo" href={url()}>
+        <a class="logo" href={url()} aria-label="Kurs programowania">
           <span class="prompt">&gt;_</span>
-          <span>Kurs programowania</span>
+          <span class="logo-text">Kurs programowania</span>
         </a>
         <nav hidden id="site-nav">
           <a href={url()} aria-current={coursesActive ? 'page' : undefined}>Kursy</a>

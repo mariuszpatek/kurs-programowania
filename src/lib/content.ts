@@ -93,5 +93,7 @@ export function topicsUpTo(all: Lesson[], lessonNumber: number): string {
 }
 
 export const coursePath = (c: Course) => `${url('course/')}?c=${encodeURIComponent(c.slug)}`;
+/** Course page scrolled to one lesson's card (its task list). */
+export const lessonTasksPath = (c: Course, n: number) => `${coursePath(c)}#lekcja-${n}`;
 export const lessonPath = (c: Course, n: number) => `${url('lesson/')}?c=${encodeURIComponent(c.slug)}&n=${n}`;
 export const taskPath = (c: Course, t: Task) => `${url('task/')}?c=${encodeURIComponent(c.slug)}&t=${encodeURIComponent(t.slug)}`;

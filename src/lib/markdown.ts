@@ -7,6 +7,10 @@
 //   ```error    an error message: console style in red
 //   ```         plain text (e.g. a prompt to copy): with a Copy button
 // A code block directly followed by an output/error block is shown as one "code → result" card.
+//
+// Callouts use GitHub's alert syntax:
+//   > [!WARNING]              > [!TIP]                  > [!NOTE]
+//   > Zaznacz „Add to PATH”.  > Skrót: Ctrl+Enter.      > Na stronie input() czyta z pola.
 import { Marked } from 'marked';
 import { languageByFence } from './languages';
 import { escapeHtml } from './languages/highlight';
@@ -27,8 +31,24 @@ function codeFigure(text: string, fence: string): string {
   return `<figure class="code-block copyable"><figcaption>${caption}</figcaption><pre><code>${body}</code></pre></figure>`;
 }
 
+const CALLOUTS: Record<string, string> = {
+  NOTE: 'Dobrze wiedzieć',
+  TIP: 'Wskazówka',
+  IMPORTANT: 'Ważne',
+  WARNING: 'Uwaga',
+  CAUTION: 'Uwaga',
+};
+
 const marked = new Marked({
   renderer: {
+    blockquote({ tokens }) {
+      const html = this.parser.parse(tokens);
+      const match = html.match(/^<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/);
+      if (!match) return `<blockquote>${html}</blockquote>`;
+      const kind = match[1];
+      const body = `<p>${html.slice(match[0].length)}`.replace(/^<p><\/p>\s*/, '');
+      return `<aside class="callout callout-${kind.toLowerCase()}"><p class="callout-title">${CALLOUTS[kind]}</p>${body}</aside>`;
+    },
     code({ text, lang }) {
       return codeFigure(text, (lang ?? '').trim().split(/\s+/)[0]);
     },

@@ -359,6 +359,47 @@ pre code {
   border-radius: 0;
 }
 
+/* callouts: > [!NOTE] / [!TIP] / [!WARNING] in lesson Markdown */
+.callout {
+  --callout: var(--accent);
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--callout) 25%, transparent);
+  border-left: 3px solid var(--callout);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--callout) 7%, var(--surface));
+}
+
+.callout p:last-child {
+  margin-bottom: 0;
+}
+
+.callout .callout-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--callout);
+}
+
+.callout-tip {
+  --callout: var(--ok);
+}
+
+.callout-warning,
+.callout-caution,
+.callout-important {
+  --callout: #c27a12;
+}
+
+blockquote {
+  margin: 0 0 20px;
+  padding: 2px 0 2px 18px;
+  border-left: 3px solid var(--line-strong);
+  color: var(--text-2);
+}
+
 /* token classes from src/lib/languages/highlight.ts */
 .tok-keyword {
   color: var(--code-keyword);
@@ -614,6 +655,15 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  .logo .logo-text {
+    display: none;
+  }
+  .site-header nav {
+    gap: 0;
+  }
+  .site-header nav a {
+    padding: 6px 8px;
+  }
   .site-header-inner,
   .page {
     padding-left: 16px;

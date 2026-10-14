@@ -6,7 +6,10 @@ import Assistant from '../components/Assistant.astro';
 ---
 
 <Layout title="Zadanie" wide>
-  <a class="back" id="back" href="#">← Lekcja</a>
+  <nav class="task-nav">
+    <a class="back" id="back" href="#">← Zadania</a>
+    <a class="notes-link" id="notes-link" href="#" hidden>Notatki z lekcji</a>
+  </nav>
   <div class="task-layout">
     <div class="description">
       <p class="eyebrow" id="task-number"></p>
@@ -26,7 +29,7 @@ import Assistant from '../components/Assistant.astro';
 </Layout>
 
 <script>
-  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, taskPath, topicsUpTo } from '../lib/content';
+  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, lessonTasksPath, taskPath, topicsUpTo } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { mountWorkspace } from '../lib/workspace';
   import { mountPredict } from '../lib/predict';
@@ -50,8 +53,13 @@ import { param } from '../lib/url';
     const lesson = courseLessons.find((l) => l.number === task.lesson_number);
 
     document.title = `${task.title} · Kurs programowania`;
-    ($('back') as HTMLAnchorElement).href = lessonPath(course, task.lesson_number);
-    $('back').textContent = `← Lekcja ${task.lesson_number}${lesson ? `: ${lesson.title}` : ''}`;
+    ($('back') as HTMLAnchorElement).href = lessonTasksPath(course, task.lesson_number);
+    $('back').textContent = `← Zadania z lekcji ${task.lesson_number}`;
+    if (lesson) {
+      ($('notes-link') as HTMLAnchorElement).href = lessonPath(course, lesson.number);
+      $('notes-link').textContent = `Notatki: ${lesson.title}`;
+      $('notes-link').hidden = false;
+    }
     $('task-number').textContent = `Lekcja ${String(task.lesson_number).padStart(2, '0')} · Zadanie ${task.number}`;
     $('task-title').textContent = task.title;
     $('task-body').innerHTML = renderMarkdown(task.body_md);
@@ -85,6 +93,20 @@ import { param } from '../lib/url';
 </script>
 
 <style>
+  .task-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px 24px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .task-nav .back {
+    margin-bottom: 0;
+  }
+  .notes-link {
+    font-size: 14px;
+  }
   .task-layout {
     display: grid;
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
@@ -111,7 +133,21 @@ import { param } from '../lib/url';
     border-top: 1px solid var(--line);
   }
   @media (max-width: 900px) {
-    .task-layout {
+    .task-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px 24px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .task-nav .back {
+    margin-bottom: 0;
+  }
+  .notes-link {
+    font-size: 14px;
+  }
+  .task-layout {
       grid-template-columns: minmax(0, 1fr);
     }
     .work {

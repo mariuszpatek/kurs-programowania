@@ -49,12 +49,19 @@ import { url } from '../lib/url';
         const lessonTasks = ts.filter((t) => t.lesson_number === lesson.number);
         const done = lessonTasks.filter((t) => statuses.get(t.id) === 'done').length;
         const card = el('section', '', 'lesson card');
+        card.id = `lekcja-${lesson.number}`;
 
         const title = el('h2');
         const link = el('a', lesson.title) as HTMLAnchorElement;
         link.href = lessonPath(course, lesson.number);
         title.append(link);
-        card.append(el('p', `Lekcja ${String(lesson.number).padStart(2, '0')}`, 'eyebrow'), title, el('p', lesson.topics.join(' · '), 'topics'));
+        const heading = el('div', '', 'lesson-heading');
+        const headingText = el('div');
+        headingText.append(el('p', `Lekcja ${String(lesson.number).padStart(2, '0')}`, 'eyebrow'), title);
+        const notes = el('a', 'Notatki z lekcji →', 'notes button') as HTMLAnchorElement;
+        notes.href = lessonPath(course, lesson.number);
+        heading.append(headingText, notes);
+        card.append(heading);
 
         const progress = el('div', '', 'progress');
         const bar = el('div', '', 'progress-bar');
@@ -75,12 +82,10 @@ import { url } from '../lib/url';
           rows.append(li);
         }
         card.append(rows);
-        const notes = el('a', 'Notatki z lekcji →', 'notes') as HTMLAnchorElement;
-        notes.href = lessonPath(course, lesson.number);
-        card.append(notes);
         return card;
       }),
     );
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
   });
 </script>
 
@@ -92,6 +97,7 @@ import { url } from '../lib/url';
   }
   .lessons :global(.lesson) {
     padding: 28px 28px 20px;
+    scroll-margin-top: 80px;
   }
   .lessons :global(.lesson h2) {
     margin: 6px 0;
@@ -100,18 +106,27 @@ import { url } from '../lib/url';
   .lessons :global(.lesson h2 a) {
     color: var(--text);
   }
-  .lessons :global(.topics) {
-    color: var(--text-2);
-    font-size: 14.5px;
-    margin-bottom: 18px;
+  .lessons :global(.lesson-heading) {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px 24px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
   }
   .lessons :global(.tasks) {
     margin: 20px 0 8px;
   }
   .lessons :global(.notes) {
-    display: inline-block;
-    margin-top: 12px;
-    font-size: 14px;
+    height: 38px;
+    padding: 0 16px;
+    background: var(--accent-bg);
+    border-color: transparent;
+    color: var(--accent);
+  }
+  .lessons :global(.notes:hover) {
+    background: var(--accent);
+    color: var(--button-text);
   }
   @media (max-width: 640px) {
     .lessons :global(.lesson) {
