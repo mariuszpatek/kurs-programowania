@@ -59,6 +59,15 @@ Kurs w innym języku (`--language csharp`) działa od razu jako lekcje i zadania
 
 Blok kodu, po którym od razu jest `output` albo `error`, wyświetla się jako jedna karta: kod, a pod nim wynik.
 
+Ramki (składnia jak na GitHubie):
+
+```
+> [!WARNING]
+> Zaznacz „Add python.exe to PATH”.
+```
+
+`[!NOTE]` to „Dobrze wiedzieć”, `[!TIP]` to „Wskazówka”, `[!IMPORTANT]` to „Ważne”, a `[!WARNING]` to „Uwaga”. Każdy nagłówek `##` staje się numerowaną sekcją i pozycją w spisie treści, a `###` to podtytuł wewnątrz sekcji.
+
 ### Walidacja
 
 Wzorcowe rozwiązanie musi przejść wszystkie testy, a każde `bad-*` oblać przynajmniej jeden. Jeśli coś nie przejdzie, nic nie zostanie wgrane. Szkice (`draft: true`) są pomijane. Zadań usuniętych z folderu skrypt nie kasuje w bazie (skasowałby próby uczniów), tylko je wypisuje.
