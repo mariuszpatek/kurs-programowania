@@ -443,6 +443,14 @@ blockquote {
   padding: 0 18px 8px;
 }
 
+.teacher-notes-body > h2:first-child {
+  margin-top: 4px;
+}
+
+.teacher-notes-body td:first-child {
+  white-space: nowrap;
+}
+
 /* token classes from src/lib/languages/highlight.ts */
 .tok-keyword {
   color: var(--code-keyword);
