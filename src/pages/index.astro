@@ -10,7 +10,7 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-  import { requireAccess, lessons, tasks, coursePath, type Course } from '../lib/content';
+  import { requireAccess, lessons, tasks, coursePath, courseLabel, type Course } from '../lib/content';
   import { taskStatuses } from '../lib/progress';
 
   const el = (tag: string, text = '', className = '') => {
@@ -28,7 +28,7 @@ import Layout from '../layouts/Layout.astro';
     const card = el('a', '', 'course card') as HTMLAnchorElement;
     card.href = coursePath(course);
     card.append(
-      el('p', [course.level, course.language === 'python' ? 'Python' : course.language].filter(Boolean).join(' · '), 'eyebrow'),
+      el('p', courseLabel(course), 'eyebrow'),
       el('h2', course.title),
     );
     if (course.description) card.append(el('p', course.description, 'muted'));

@@ -1,7 +1,7 @@
 """Unit tests for the browser-side checker.
 
 Run: py -m unittest discover tests
-Course content (tasks, tests, solutions) is validated separately by scripts/validate_content.py.
+Course content (tasks, tests, solutions) is validated separately by scripts/validate_python.py.
 """
 
 import sys

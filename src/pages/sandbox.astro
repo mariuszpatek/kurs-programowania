@@ -15,10 +15,12 @@ import Workspace from '../components/Workspace.astro';
 <script>
   import { requireAccess } from '../lib/content';
   import { mountWorkspace } from '../lib/workspace';
+  import { languageById } from '../lib/languages';
 
   requireAccess().then((access) => {
     if (!access) return;
     mountWorkspace(document.querySelector('.workspace')!, {
+      language: languageById('python'),
       draftKey: 'sandbox',
       starterCode: 'imie = input("Jak masz na imię? ")\nprint("Cześć, " + imie + "!")\n',
       starterStdin: 'Ola',

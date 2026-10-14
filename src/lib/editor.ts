@@ -2,8 +2,8 @@ import { EditorView, basicSetup } from 'codemirror';
 import { keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language';
-import { python } from '@codemirror/lang-python';
 import { tags as t } from '@lezer/highlight';
+import type { Language } from './languages';
 
 // Colours come from the page's CSS variables, so the editor follows the light/dark theme on its own.
 const theme = EditorView.theme({
@@ -31,13 +31,13 @@ const syntax = HighlightStyle.define([
   { tag: t.comment, color: 'var(--code-comment)', fontStyle: 'italic' },
 ]);
 
-export function createEditor(parent: HTMLElement, doc: string, onChange?: (doc: string) => void): EditorView {
+export function createEditor(parent: HTMLElement, doc: string, language: Language, onChange?: (doc: string) => void): EditorView {
   return new EditorView({
     parent,
     doc,
     extensions: [
       basicSetup,
-      python(),
+      language.editorExtension(),
       theme,
       syntaxHighlighting(syntax),
       indentUnit.of('    '),

@@ -1,9 +1,18 @@
 // Reads course content. Row level security decides what comes back:
 // a student gets only their courses and lessons up to `unlocked_through`, a teacher gets everything.
 import { supabase, currentUser } from './supabase';
+import { languageById } from './languages';
 import { url } from './url';
 
-export type Course = { id: string; slug: string; title: string; language: string; level: string; description: string };
+export type Course = {
+  id: string;
+  slug: string;
+  title: string;
+  language: string;
+  level: string;
+  description: string;
+  tutor_prompt: string;
+};
 export type Enrollment = { email: string; course_id: string; unlocked_through: number };
 export type Lesson = { id: string; course_id: string; number: number; title: string; topics: string[]; body_md: string };
 export type Task = {
@@ -63,6 +72,16 @@ export async function tasks(courseId: string): Promise<Task[]> {
 export async function taskBySlug(courseId: string, slug: string): Promise<Task | null> {
   const { data } = await supabase.from('lms_tasks').select('*').eq('course_id', courseId).eq('slug', slug).maybeSingle();
   return data;
+}
+
+/** Course label like "Podstawy · Python". */
+export function courseLabel(course: Course): string {
+  return [course.level, languageById(course.language).label].filter(Boolean).join(' · ');
+}
+
+/** The course's tutor prompt with {{topics}} filled in from lessons up to `lessonNumber`. */
+export function tutorPrompt(course: Course, all: Lesson[], lessonNumber: number): string {
+  return course.tutor_prompt.replace('{{topics}}', topicsUpTo(all, lessonNumber));
 }
 
 /** Topics of all visible lessons up to `lessonNumber`, for the AI assistant. */

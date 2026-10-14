@@ -12,7 +12,7 @@ import { url } from '../lib/url';
 </Layout>
 
 <script>
-  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, taskPath } from '../lib/content';
+  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, taskPath, courseLabel } from '../lib/content';
   import { taskStatuses } from '../lib/progress';
   import { param } from '../lib/url';
 
@@ -33,7 +33,7 @@ import { url } from '../lib/url';
       return;
     }
     document.title = `${course.title} · Kurs programowania`;
-    document.getElementById('course-meta')!.textContent = [course.level, 'Python'].filter(Boolean).join(' · ');
+    document.getElementById('course-meta')!.textContent = courseLabel(course);
     document.getElementById('course-title')!.textContent = course.title;
     document.getElementById('course-description')!.textContent = course.description;
 

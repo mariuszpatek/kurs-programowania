@@ -14,10 +14,19 @@ import Layout from '../layouts/Layout.astro';
     <ol class="row-list"></ol>
   </section>
 
+  <section class="prose tutor" id="lesson-tutor" hidden>
+    <h2>Pomoc między lekcjami: AI jako korepetytor</h2>
+    <p>
+      Gdy utkniesz, możesz zapytać ChatGPT albo Claude, ale tak, żeby uczył, a nie robił za Ciebie. Skopiuj poniższy tekst, uzupełnij pola w nawiasach
+      <code>[]</code> i wklej jako pierwszą wiadomość w nowej rozmowie. Lista tematów jest zawsze aktualna, więc po każdej lekcji bierz prompt z najnowszej.
+    </p>
+    <div id="tutor-prompt"></div>
+  </section>
+
   <section class="export" id="lesson-export" hidden>
     <div>
       <p class="eyebrow">Lekcja jako tekst</p>
-      <p class="muted">Cała lekcja w Markdownie. Możesz ją wkleić do ChatGPT albo Claude i zadawać pytania o materiał.</p>
+      <p class="muted">Cała lekcja z zadaniami w Markdownie. Możesz ją wkleić do ChatGPT albo Claude i zadawać pytania o materiał.</p>
     </div>
     <div class="export-buttons">
       <button id="copy-md" class="primary">Kopiuj lekcję</button>
@@ -27,8 +36,9 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-  import { requireAccess, courseBySlug, lessons, tasks, coursePath, taskPath } from '../lib/content';
-  import { renderMarkdown } from '../lib/markdown';
+  import { requireAccess, courseBySlug, lessons, tasks, coursePath, taskPath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
+  import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
+  import { languageById } from '../lib/languages';
   import { taskStatuses } from '../lib/progress';
   import { param } from '../lib/url';
 
@@ -40,71 +50,44 @@ import Layout from '../layouts/Layout.astro';
     return e;
   };
   const STATUS_TEXT = { done: 'zaliczone', started: 'w trakcie', todo: 'do zrobienia' };
+  const fence = (lang: string, code: string) => `\`\`\`${lang}\n${code.replace(/\n$/, '')}\n\`\`\``;
 
-  /** Copy buttons on code blocks: handy for the tutor prompt and examples. */
-  function addCopyButtons(root: HTMLElement) {
-    root.querySelectorAll('pre').forEach((pre) => {
-      const button = el('button', 'Kopiuj', 'copy ghost');
-      button.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(pre.querySelector('code')?.textContent ?? pre.textContent ?? '');
-          button.textContent = 'Skopiowano';
-        } catch {
-          getSelection()?.selectAllChildren(pre);
-          button.textContent = 'Zaznaczono, Ctrl+C';
-        }
-        setTimeout(() => (button.textContent = 'Kopiuj'), 2000);
-      });
-      const wrap = el('div', '', 'code-block');
-      pre.replaceWith(wrap);
-      wrap.append(pre, button);
-    });
-  }
-
-  requireAccess().then(async (access) => {
-    if (!access) return;
-    const course = await courseBySlug(param('c'));
-    const number = Number(param('n'));
-    const lesson = course ? (await lessons(course.id)).find((l) => l.number === number) : undefined;
-    if (!course || !lesson) {
-      $('lesson-body').replaceChildren(el('p', 'Ta lekcja nie istnieje albo nie jest jeszcze odblokowana.', 'muted'));
-      return;
-    }
-    document.title = `${lesson.title} · Kurs programowania`;
-    ($('back') as HTMLAnchorElement).href = coursePath(course);
-    $('back').textContent = `← ${course.title}`;
-    $('lesson-number').textContent = `Lekcja ${String(lesson.number).padStart(2, '0')}`;
-    $('lesson-title').textContent = lesson.title;
-    $('lesson-topics').replaceChildren(...lesson.topics.map((t) => el('li', t)));
-    $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
-    addCopyButtons($('lesson-body'));
-
-    const lessonTasks = (await tasks(course.id)).filter((t) => t.lesson_number === lesson.number);
-    if (lessonTasks.length) {
-      const statuses = await taskStatuses(lessonTasks.map((t) => t.id));
-      $('lesson-tasks').querySelector('ol')!.replaceChildren(
-        ...lessonTasks.map((t) => {
-          const status = statuses.get(t.id) ?? 'todo';
-          const row = el('a', '', 'row') as HTMLAnchorElement;
-          row.href = taskPath(course, t);
-          row.append(el('span', String(t.number), 'row-number'), el('span', t.title, 'row-title'), el('span', STATUS_TEXT[status], `status-dot ${status}`));
-          const li = el('li');
-          li.append(row);
-          return li;
-        }),
-      );
-      $('lesson-tasks').hidden = false;
-    }
-
-    // The whole lesson with its tasks as one Markdown document, ready to paste into an AI chat.
-    const markdown = [
+  /** The whole lesson with its tasks as one Markdown document, ready to paste into an AI chat. */
+  function lessonAsMarkdown(course: Course, lesson: Lesson, lessonTasks: Task[]): string {
+    const lang = languageById(course.language).aliases[0];
+    return [
       `# ${course.title}: lekcja ${lesson.number}. ${lesson.title}`,
       `Tematy: ${lesson.topics.join(', ')}`,
       lesson.body_md,
-      ...lessonTasks.map((t) => [`## Zadanie ${t.number}: ${t.title}`, t.body_md, t.predict_code && `\`\`\`python\n${t.predict_code}\`\`\``, t.starter_code && `Kod startowy:\n\`\`\`python\n${t.starter_code}\`\`\``].filter(Boolean).join('\n\n')),
+      ...lessonTasks.map((t) =>
+        [
+          `## Zadanie ${t.number}: ${t.title}`,
+          t.body_md,
+          t.predict_code && fence(lang, t.predict_code),
+          t.starter_code && `Kod startowy:\n\n${fence(lang, t.starter_code)}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+      ),
     ].join('\n\n');
-    const fileName = `${course.slug}-lekcja-${String(lesson.number).padStart(2, '0')}.md`;
+  }
 
+  function showTasks(course: Course, lessonTasks: Task[], statuses: Map<string, string>) {
+    $('lesson-tasks').querySelector('ol')!.replaceChildren(
+      ...lessonTasks.map((t) => {
+        const status = (statuses.get(t.id) ?? 'todo') as keyof typeof STATUS_TEXT;
+        const row = el('a', '', 'row') as HTMLAnchorElement;
+        row.href = taskPath(course, t);
+        row.append(el('span', String(t.number), 'row-number'), el('span', t.title, 'row-title'), el('span', STATUS_TEXT[status], `status-dot ${status}`));
+        const li = el('li');
+        li.append(row);
+        return li;
+      }),
+    );
+    $('lesson-tasks').hidden = false;
+  }
+
+  function setUpExport(markdown: string, fileName: string) {
     $('lesson-export').hidden = false;
     $('copy-md').addEventListener('click', async () => {
       try {
@@ -122,6 +105,37 @@ import Layout from '../layouts/Layout.astro';
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     });
+  }
+
+  requireAccess().then(async (access) => {
+    if (!access) return;
+    const course = await courseBySlug(param('c'));
+    const number = Number(param('n'));
+    const courseLessons = course ? await lessons(course.id) : [];
+    const lesson = courseLessons.find((l) => l.number === number);
+    if (!course || !lesson) {
+      $('lesson-body').replaceChildren(el('p', 'Ta lekcja nie istnieje albo nie jest jeszcze odblokowana.', 'muted'));
+      return;
+    }
+    document.title = `${lesson.title} · Kurs programowania`;
+    ($('back') as HTMLAnchorElement).href = coursePath(course);
+    $('back').textContent = `← ${course.title}`;
+    $('lesson-number').textContent = `Lekcja ${String(lesson.number).padStart(2, '0')}`;
+    $('lesson-title').textContent = lesson.title;
+    $('lesson-topics').replaceChildren(...lesson.topics.map((t) => el('li', t)));
+    $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
+    enhanceCodeBlocks($('lesson-body'));
+
+    const lessonTasks = (await tasks(course.id)).filter((t) => t.lesson_number === lesson.number);
+    if (lessonTasks.length) showTasks(course, lessonTasks, await taskStatuses(lessonTasks.map((t) => t.id)));
+
+    if (course.tutor_prompt) {
+      $('tutor-prompt').innerHTML = renderMarkdown(fence('', tutorPrompt(course, courseLessons, lesson.number)));
+      enhanceCodeBlocks($('tutor-prompt'));
+      $('lesson-tutor').hidden = false;
+    }
+
+    setUpExport(lessonAsMarkdown(course, lesson, lessonTasks), `${course.slug}-lekcja-${String(lesson.number).padStart(2, '0')}.md`);
   });
 </script>
 
@@ -152,27 +166,18 @@ import Layout from '../layouts/Layout.astro';
     padding-top: 0;
     margin-top: 0;
   }
-  .prose :global(.code-block) {
-    position: relative;
+  .tutor {
+    margin-top: 48px;
   }
-  .prose :global(.copy) {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    height: 26px;
-    padding: 0 10px;
-    font-size: 12px;
-    opacity: 0;
-    transition: opacity 0.15s;
+  .tutor h2:first-child {
+    border-top: 1px solid var(--line);
+    padding-top: 28px;
   }
-  .prose :global(.code-block:hover .copy),
-  .prose :global(.copy:focus-visible) {
-    opacity: 1;
-  }
-  @media (hover: none) {
-    .prose :global(.copy) {
-      opacity: 1;
-    }
+  .tutor :global(pre) {
+    white-space: pre-wrap;
+    max-height: 320px;
+    overflow-y: auto;
+    font-size: 13.5px;
   }
   .tasks {
     margin-top: 56px;

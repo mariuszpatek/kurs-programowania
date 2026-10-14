@@ -27,11 +27,12 @@ import Assistant from '../components/Assistant.astro';
 
 <script>
   import { requireAccess, courseBySlug, lessons, tasks, lessonPath, taskPath, topicsUpTo } from '../lib/content';
-  import { renderMarkdown } from '../lib/markdown';
+  import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { mountWorkspace } from '../lib/workspace';
   import { mountPredict } from '../lib/predict';
   import { mountAssistant } from '../lib/assistant';
-  import { param } from '../lib/url';
+  import { languageById } from '../lib/languages';
+import { param } from '../lib/url';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -54,6 +55,8 @@ import Assistant from '../components/Assistant.astro';
     $('task-number').textContent = `Lekcja ${String(task.lesson_number).padStart(2, '0')} · Zadanie ${task.number}`;
     $('task-title').textContent = task.title;
     $('task-body').innerHTML = renderMarkdown(task.body_md);
+    enhanceCodeBlocks($('task-body'));
+    const language = languageById(course.language);
 
     const next = all[index + 1];
     if (next && next.lesson_number === task.lesson_number) {
@@ -64,9 +67,10 @@ import Assistant from '../components/Assistant.astro';
     }
 
     if (task.kind === 'predict') {
-      mountPredict(document.querySelector('.predict')!, task);
+      mountPredict(document.querySelector('.predict')!, task, language);
     } else {
       mountWorkspace(document.querySelector('.workspace')!, {
+        language,
         draftKey: task.id,
         starterCode: task.starter_code,
         task: { id: task.id, tests: task.tests },

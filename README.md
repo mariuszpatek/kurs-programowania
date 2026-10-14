@@ -13,27 +13,55 @@ Interfejs jest po polsku, kod (TypeScript, Python, SQL) po angielsku.
 - **Python działa w przeglądarce** (Pyodide w Web Workerze). Program działający dłużej niż 5 s jest zatrzymywany.
 - **Próby** (każde „Sprawdź”) trafiają do `lms_attempts`. Nauczyciel widzi je w panelu `/teacher/`.
 
-## Treść kursu
+## Treść kursów
 
-Treść leży w prywatnym folderze, np. `../korepetycje_python/platforma/python-podstawy/`:
-
-```
-course.yaml                 slug, title, language, level, description
-lessons/01.md               frontmatter: number, title, topics; treść w Markdownie
-tasks/01/01-nazwa.md        frontmatter: title, number, kind (code | predict), starter_code, predict_code
-tasks/01/01-nazwa.test.py   testy: funkcje test_*(ctx)
-solutions/01/01-nazwa.py    wzorcowe rozwiązanie (dla predict: .txt z oczekiwanym wynikiem)
-solutions/01/01-nazwa.bad-opis.py   typowy błąd ucznia, który testy muszą wyłapać
-```
-
-Wgranie (najpierw walidacja, potem upload; `solutions/` nigdy nie trafia do bazy):
+Treść leży w prywatnym folderze `../korepetycje_python/platforma/` (inny można ustawić w `.env` jako `CONTENT_DIR`). Każdy podfolder to jeden kurs:
 
 ```
-npm run sync-content -- ../korepetycje_python/platforma/python-podstawy
-npm run sync-content -- ../korepetycje_python/platforma/python-podstawy --dry-run   # tylko walidacja
+python-podstawy/
+  course.yaml                       slug, title, language, level, description
+  tutor-prompt.md                   prompt korepetytora AI; {{topics}} = tematy lekcji do bieżącej
+  lessons/01.md                     frontmatter: number, title, topics, draft?
+  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict), starter_code?, predict_code?, draft?
+  tasks/01/01-nazwa.test.py         testy: funkcje test_*(ctx)
+  solutions/01/01-nazwa.py          wzorcowe rozwiązanie (dla predict: .txt z oczekiwanym wynikiem)
+  solutions/01/01-nazwa.bad-opis.py typowy błąd ucznia, który testy muszą wyłapać
 ```
 
-Walidacja sprawdza, że wzorcowe rozwiązanie przechodzi wszystkie testy, a każde `bad-*` oblewa przynajmniej jeden. Zadań usuniętych z folderu skrypt nie kasuje w bazie (skasowałby próby uczniów), tylko je wypisuje.
+### Nowa lekcja
+
+```
+npm run new-lesson -- python-podstawy     # tworzy lekcję N+1 z przykładowym zadaniem, jako szkic
+# uzupełnij pliki, usuń „draft: true” z lekcji i zadań
+npm run sync-content -- --dry-run         # sama walidacja
+npm run sync-content                      # walidacja i wgranie wszystkich kursów
+```
+
+Uczeń zobaczy lekcję dopiero po odblokowaniu jej w panelu (przycisk + przy uczniu). Prompt korepetytora pod lekcją aktualizuje się sam z listy `topics`.
+
+### Nowy kurs
+
+```
+npm run new-course -- python-zaawansowany "Python dla zaawansowanych" --level Zaawansowany
+npm run new-lesson -- python-zaawansowany
+```
+
+Kurs w innym języku (`--language csharp`) działa od razu jako lekcje i zadania do czytania. Żeby kod dało się uruchamiać i sprawdzać na stronie, trzeba dopisać język w `src/lib/languages/` (tryb edytora, kolorowanie, runner) i walidator w `scripts/sync-content.mjs` (`VALIDATORS`).
+
+### Kod w treści lekcji
+
+| Blok | Wygląd |
+|---|---|
+| ```` ```python ```` | kod z kolorowaniem, podpisem języka i przyciskiem „Kopiuj” |
+| ```` ```output ```` | wynik programu w stylu konsoli |
+| ```` ```error ```` | komunikat błędu w stylu konsoli, na czerwono |
+| ```` ``` ```` | zwykły tekst z przyciskiem „Kopiuj” |
+
+Blok kodu, po którym od razu jest `output` albo `error`, wyświetla się jako jedna karta: kod, a pod nim wynik.
+
+### Walidacja
+
+Wzorcowe rozwiązanie musi przejść wszystkie testy, a każde `bad-*` oblać przynajmniej jeden. Jeśli coś nie przejdzie, nic nie zostanie wgrane. Szkice (`draft: true`) są pomijane. Zadań usuniętych z folderu skrypt nie kasuje w bazie (skasowałby próby uczniów), tylko je wypisuje.
 
 ### API testów (`public/py/checker.py`)
 

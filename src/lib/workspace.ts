@@ -1,9 +1,11 @@
 import { createEditor, setDoc } from './editor';
-import { preparePython, runCode, checkCode, TimedOut, type PythonError, type RunResult } from './python';
+import type { Language } from './languages';
+import { TimedOut, type CodeError, type RunResult } from './languages/types';
 import { loadDraft, saveDraft, saveAttempt, lastAttemptCode } from './progress';
 import { taskState } from './state';
 
 export type WorkspaceOptions = {
+  language: Language;
   /** Key for the local draft: task id, or "sandbox". */
   draftKey: string;
   starterCode: string;
@@ -27,10 +29,15 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   const resetButton = $<HTMLButtonElement>('.reset');
   const status = $('.status');
   const stdin = $<HTMLTextAreaElement>('.stdin textarea');
+  const { language } = options;
+  const runner = language.runner;
   const hasTests = Boolean(options.task?.tests);
 
   root.hidden = false;
-  checkButton.hidden = !hasTests;
+  $('.file-name').textContent = language.fileName;
+  runButton.hidden = !runner;
+  checkButton.hidden = !hasTests || !runner;
+  $('.stdin').hidden = !runner;
   resetButton.hidden = !options.task;
   if (options.starterStdin) {
     stdin.value = options.starterStdin;
@@ -38,7 +45,7 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   }
 
   const draft = loadDraft(options.draftKey);
-  const editor = createEditor($('.editor'), draft ?? options.starterCode, (code) => {
+  const editor = createEditor($('.editor'), draft ?? options.starterCode, language, (code) => {
     taskState.code = code;
     saveDraft(options.draftKey, code);
   });
@@ -46,18 +53,22 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   // No draft in this browser: continue from the last attempt (e.g. the student switched computers).
   if (options.task && draft === null) lastAttemptCode(options.task.id).then((code) => code && setDoc(editor, code));
 
-  let pythonReady = false;
+  let runnerReady = false;
   const busy = (yes: boolean, text = '') => {
-    runButton.disabled = yes || !pythonReady;
-    checkButton.disabled = yes || !pythonReady;
+    runButton.disabled = yes || !runnerReady;
+    checkButton.disabled = yes || !runnerReady;
     status.textContent = text;
   };
-  preparePython().then(
-    () => ((pythonReady = true), busy(false)),
-    (e) => (status.textContent = `${e.message}. Odśwież stronę.`),
-  );
+  if (runner) {
+    runner.prepare().then(
+      () => ((runnerReady = true), busy(false)),
+      (e) => (status.textContent = `${e.message}. Odśwież stronę.`),
+    );
+  } else {
+    status.textContent = `Kodu w języku ${language.label} nie da się jeszcze uruchomić na stronie. Napisz go w swoim edytorze.`;
+  }
 
-  function showError(error: PythonError | null) {
+  function showError(error: CodeError | null) {
     const box = $('.error');
     box.hidden = !error;
     if (!error) return;
@@ -94,12 +105,12 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   }
 
   async function run() {
-    if (runButton.disabled) return;
+    if (!runner || runButton.disabled) return;
     busy(true, 'Uruchamiam…');
     $('.results').hidden = true;
     const started = performance.now();
     try {
-      showOutput(await runCode(editor.state.doc.toString(), stdin.value), performance.now() - started);
+      showOutput(await runner.run(editor.state.doc.toString(), stdin.value), performance.now() - started);
     } catch (e) {
       e instanceof TimedOut ? showTimeout() : (status.textContent = String(e));
     }
@@ -115,11 +126,11 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   });
 
   checkButton.addEventListener('click', async () => {
-    if (!options.task) return;
+    if (!options.task || !runner) return;
     const code = editor.state.doc.toString();
     busy(true, 'Sprawdzam…');
     try {
-      const result = await checkCode(code, options.task.tests);
+      const result = await runner.check(code, options.task.tests);
       if (result.run) showOutput(result.run);
       const passedCount = result.tests.filter((t) => t.ok).length;
       const verdict = $('.verdict');

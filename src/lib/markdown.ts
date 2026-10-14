@@ -1,33 +1,41 @@
 // Lesson and task text comes from the database as Markdown and is rendered in the browser.
-// Only the teacher can write content (via the sync script), so the HTML is trusted.
+// Only the teacher writes content (via the sync script), so the generated HTML is trusted.
+//
+// Code fences in lesson Markdown:
+//   ```python   code: highlighted, with a language caption and a Copy button
+//   ```output   what the program prints: console style
+//   ```error    an error message: console style in red
+//   ```         plain text (e.g. a prompt to copy): with a Copy button
+// A code block directly followed by an output/error block is shown as one "code → result" card.
 import { Marked } from 'marked';
-import { highlightCode, classHighlighter } from '@lezer/highlight';
-import { parser as pythonParser } from '@lezer/python';
+import { languageByFence } from './languages';
+import { escapeHtml } from './languages/highlight';
 
-const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const CONSOLE_FENCES: Record<string, { className: string; caption: string }> = {
+  output: { className: 'output', caption: 'Wynik' },
+  error: { className: 'output error', caption: 'Błąd' },
+};
 
-export function highlightPython(code: string): string {
-  let html = '';
-  highlightCode(
-    code,
-    pythonParser.parse(code),
-    classHighlighter,
-    (text, classes) => (html += classes ? `<span class="${classes}">${escape(text)}</span>` : escape(text)),
-    () => (html += '\n'),
-  );
-  return html;
+function codeFigure(text: string, fence: string): string {
+  const consoleKind = CONSOLE_FENCES[fence];
+  if (consoleKind) {
+    return `<figure class="code-block ${consoleKind.className}"><figcaption>${consoleKind.caption}</figcaption><pre>${escapeHtml(text)}</pre></figure>`;
+  }
+  const language = languageByFence(fence);
+  const body = language ? language.highlight(text) : escapeHtml(text);
+  const caption = language?.label ?? (fence ? escapeHtml(fence) : 'Tekst');
+  return `<figure class="code-block copyable"><figcaption>${caption}</figcaption><pre><code>${body}</code></pre></figure>`;
 }
 
 const marked = new Marked({
   renderer: {
     code({ text, lang }) {
-      const body = lang === 'python' || lang === 'py' ? highlightPython(text) : escape(text);
-      return `<pre><code>${body}</code></pre>`;
+      return codeFigure(text, (lang ?? '').trim().split(/\s+/)[0]);
     },
     link({ href, tokens }) {
       const text = this.parser.parseInline(tokens);
       const external = /^https?:\/\//.test(href);
-      return `<a href="${escape(href)}"${external ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`;
+      return `<a href="${escapeHtml(href)}"${external ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`;
     },
   },
 });
@@ -38,5 +46,34 @@ export function renderMarkdown(md: string): string {
 
 /** For text written by the AI: Markdown formatting, but no raw HTML. */
 export function renderUntrustedMarkdown(md: string): string {
-  return marked.parse(escape(md), { async: false });
+  return marked.parse(escapeHtml(md), { async: false });
+}
+
+/** Adds Copy buttons and joins code with the output block right after it. Call after inserting rendered HTML. */
+export function enhanceCodeBlocks(root: HTMLElement) {
+  for (const figure of root.querySelectorAll<HTMLElement>('figure.code-block.copyable')) {
+    const next = figure.nextElementSibling;
+    if (next?.matches('figure.code-block.output')) {
+      const pair = document.createElement('div');
+      pair.className = 'code-pair';
+      figure.replaceWith(pair);
+      pair.append(figure, next);
+    }
+    const button = document.createElement('button');
+    button.className = 'copy ghost';
+    button.type = 'button';
+    button.textContent = 'Kopiuj';
+    button.addEventListener('click', async () => {
+      const pre = figure.querySelector('pre')!;
+      try {
+        await navigator.clipboard.writeText(pre.textContent ?? '');
+        button.textContent = 'Skopiowano';
+      } catch {
+        getSelection()?.selectAllChildren(pre);
+        button.textContent = 'Zaznaczono, naciśnij Ctrl+C';
+      }
+      setTimeout(() => (button.textContent = 'Kopiuj'), 2000);
+    });
+    figure.querySelector('figcaption')!.append(button);
+  }
 }

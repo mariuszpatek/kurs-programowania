@@ -16,6 +16,8 @@ create table public.lms_courses (
   language text not null default 'python',
   level text not null default '',
   description text not null default '',
+  -- Template of the AI tutor prompt; {{topics}} is replaced with topics of lessons up to the current one.
+  tutor_prompt text not null default '',
   created_at timestamptz not null default now()
 );
 

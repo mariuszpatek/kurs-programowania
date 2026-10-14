@@ -1,13 +1,5 @@
-import { url } from './url';
-
-export type PythonError = { type: string; message: string; line: number | null; line_text: string | null; hint: string | null };
-export type RunResult = { output: string; error: PythonError | null };
-export type TestResult = { name: string; ok: boolean; message: string | null };
-export type CheckResult = { passed: boolean; tests: TestResult[]; run: RunResult | null };
-export type PredictLine = { student: string | null; actual: string | null; ok: boolean };
-export type PredictResult = { passed: boolean; lines: PredictLine[]; error: PythonError | null };
-
-export class TimedOut extends Error {}
+import { url } from '../../url';
+import { TimedOut, type CheckResult, type PredictResult, type RunResult, type Runner } from '../types';
 
 const TIME_LIMIT_MS = { run: 5000, check: 15000, predict: 5000 };
 
@@ -17,7 +9,7 @@ let nextId = 0;
 const pending = new Map<number, { resolve: (r: any) => void; reject: (e: Error) => void }>();
 
 function startWorker(): Promise<void> {
-  const w = new Worker(new URL('./python.worker.ts', import.meta.url), { type: 'module' });
+  const w = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   worker = w;
   booting = new Promise((resolve, reject) => {
     w.onmessage = (e) => {
@@ -37,7 +29,7 @@ function startWorker(): Promise<void> {
 }
 
 /** Starts loading Python in the background; call as soon as a page with an editor opens. */
-export function preparePython(): Promise<void> {
+function preparePython(): Promise<void> {
   return booting ?? startWorker();
 }
 
@@ -61,6 +53,9 @@ async function send<T>(kind: keyof typeof TIME_LIMIT_MS, payload: Record<string,
   });
 }
 
-export const runCode = (code: string, stdin: string) => send<RunResult>('run', { code, stdin });
-export const checkCode = (code: string, tests: string) => send<CheckResult>('check', { code, tests });
-export const checkPrediction = (code: string, guess: string) => send<PredictResult>('predict', { code, stdin: guess });
+export const pythonRunner: Runner = {
+  prepare: preparePython,
+  run: (code, stdin) => send<RunResult>('run', { code, stdin }),
+  check: (code, tests) => send<CheckResult>('check', { code, tests }),
+  predict: (code, guess) => send<PredictResult>('predict', { code, stdin: guess }),
+};

@@ -1,6 +1,6 @@
 """Validates task tests against reference solutions before content is uploaded.
 
-Reads a JSON list of tasks on stdin (written by sync-content.mjs). For each task:
+Reads a JSON list of tasks on stdin (written by sync-content.mjs for Python courses). For each task:
 - the reference solution must pass every test (or, for "predict" tasks, match the real output),
 - every "bad" solution must fail at least one test, so the tests really catch that mistake.
 Prints a report and exits with 1 when anything is wrong.
