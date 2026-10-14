@@ -640,6 +640,31 @@ textarea {
   color: var(--accent);
 }
 
+.task-group + .task-group {
+  margin-top: 24px;
+}
+
+.task-group-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.draft-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #c27a12 14%, var(--surface));
+  color: #b06a08;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+
 .row-number {
   font-family: var(--mono);
   font-size: 13px;

@@ -32,10 +32,13 @@ python-podstawy/
 
 ```
 npm run new-lesson -- python-podstawy     # tworzy lekcję N+1 z przykładowym zadaniem, jako szkic
-# uzupełnij pliki, usuń „draft: true” z lekcji i zadań
 npm run sync-content -- --dry-run         # sama walidacja
 npm run sync-content                      # walidacja i wgranie wszystkich kursów
 ```
+
+Szkic (`draft: true`) też trafia do bazy, ale widzi go tylko nauczyciel (z oznaczeniem „szkic”), więc można przejrzeć lekcję na stronie przed zajęciami. Gdy jest gotowa: usuń `draft: true` z lekcji i zadań i wgraj ponownie.
+
+Zadania z `in_class: true` są na liście osobno, jako „Na lekcji”, przed zadaniami domowymi.
 
 Uczeń zobaczy lekcję dopiero po odblokowaniu jej w panelu (przycisk + przy uczniu). Prompt korepetytora pod lekcją aktualizuje się sam z listy `topics`.
 
@@ -70,7 +73,7 @@ Ramki (składnia jak na GitHubie):
 
 ### Walidacja
 
-Wzorcowe rozwiązanie musi przejść wszystkie testy, a każde `bad-*` oblać przynajmniej jeden. Jeśli coś nie przejdzie, nic nie zostanie wgrane. Szkice (`draft: true`) są pomijane. Zadań usuniętych z folderu skrypt nie kasuje w bazie (skasowałby próby uczniów), tylko je wypisuje.
+Wzorcowe rozwiązanie musi przejść wszystkie testy, a każde `bad-*` oblać przynajmniej jeden. Jeśli coś nie przejdzie, nic nie zostanie wgrane. Zadań usuniętych z folderu skrypt nie kasuje w bazie (skasowałby próby uczniów), tylko je wypisuje.
 
 ### API testów (`public/py/checker.py`)
 

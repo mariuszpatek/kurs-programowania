@@ -25,8 +25,8 @@ import Layout from '../layouts/Layout.astro';
       <article class="prose" id="lesson-body"><p class="loading">Ładuję lekcję…</p></article>
 
       <section class="tasks card" id="lesson-tasks" hidden>
-        <p class="eyebrow">Zadania po tej lekcji</p>
-        <ol class="row-list"></ol>
+        <p class="eyebrow">Zadania</p>
+        <div id="task-list"></div>
       </section>
 
       <section class="prose tutor" id="lesson-tutor" hidden>
@@ -54,11 +54,12 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-  import { requireAccess, courseBySlug, lessons, tasks, coursePath, taskPath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
+  import { requireAccess, courseBySlug, lessons, tasks, coursePath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { splitIntoSections, mountOutline, readingMinutes } from '../lib/lesson-outline';
   import { languageById } from '../lib/languages';
-  import { taskStatuses } from '../lib/progress';
+  import { taskStatuses, type TaskStatus } from '../lib/progress';
+  import { renderTaskList } from '../lib/task-list';
   import { param } from '../lib/url';
 
   const $ = (id: string) => document.getElementById(id)!;
@@ -68,7 +69,6 @@ import Layout from '../layouts/Layout.astro';
     if (className) e.className = className;
     return e;
   };
-  const STATUS_TEXT = { done: 'zaliczone', started: 'w trakcie', todo: 'do zrobienia' };
   const taskCount = (n: number) =>
     n === 1 ? '1 zadanie' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? `${n} zadania` : `${n} zadań`;
   const fence = (lang: string, code: string) => `\`\`\`${lang}\n${code.replace(/\n$/, '')}\n\`\`\``;
@@ -93,18 +93,8 @@ import Layout from '../layouts/Layout.astro';
     ].join('\n\n');
   }
 
-  function showTasks(course: Course, lessonTasks: Task[], statuses: Map<string, string>) {
-    $('lesson-tasks').querySelector('ol')!.replaceChildren(
-      ...lessonTasks.map((t) => {
-        const status = (statuses.get(t.id) ?? 'todo') as keyof typeof STATUS_TEXT;
-        const row = el('a', '', 'row') as HTMLAnchorElement;
-        row.href = taskPath(course, t);
-        row.append(el('span', String(t.number), 'row-number'), el('span', t.title, 'row-title'), el('span', STATUS_TEXT[status], `status-dot ${status}`));
-        const li = el('li');
-        li.append(row);
-        return li;
-      }),
-    );
+  function showTasks(course: Course, lessonTasks: Task[], statuses: Map<string, TaskStatus>) {
+    renderTaskList($('task-list'), course, lessonTasks, statuses);
     $('lesson-tasks').hidden = false;
   }
 
@@ -143,6 +133,7 @@ import Layout from '../layouts/Layout.astro';
     $('back').textContent = `← ${course.title}`;
     $('lesson-number').textContent = `Lekcja ${String(lesson.number).padStart(2, '0')}`;
     $('lesson-title').textContent = lesson.title;
+    if (lesson.draft) $('lesson-title').append(el('span', 'szkic: widzisz tylko Ty', 'draft-badge'));
     $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
     enhanceCodeBlocks($('lesson-body'));
     const outline = splitIntoSections($('lesson-body'));
@@ -309,7 +300,7 @@ import Layout from '../layouts/Layout.astro';
     padding: 24px 24px 12px;
     scroll-margin-top: 72px;
   }
-  .tasks ol {
+  .tasks #task-list {
     margin-top: 12px;
   }
   .export {

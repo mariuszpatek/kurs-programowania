@@ -6,7 +6,8 @@
 //
 // Course content is private: it lives outside this public repo and reaches students only through
 // Supabase, which serves each student the lessons unlocked for them (RLS). Lessons and tasks marked
-// `draft: true` are skipped. Reference solutions are used for validation and never uploaded.
+// `draft: true` are uploaded too, but only the teacher sees them (RLS), so they can be reviewed on the site.
+// Reference solutions are used for validation and never uploaded.
 //
 // Needs PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.
 import { existsSync } from 'node:fs';
@@ -47,10 +48,9 @@ function validate(language, tasks) {
 const courses = dirs.map(loadCourse);
 let ok = true;
 for (const { course, lessons, tasks } of courses) {
-  const live = { lessons: lessons.filter((l) => !l.draft), tasks: tasks.filter((t) => !t.draft) };
-  const drafts = lessons.length - live.lessons.length + tasks.length - live.tasks.length;
-  console.log(`${course.title} (${course.slug}): ${live.lessons.length} lekcji, ${live.tasks.length} zadań${drafts ? `, szkice pominięte: ${drafts}` : ''}`);
-  ok = validate(course.language, live.tasks) && ok;
+  const drafts = lessons.filter((l) => l.draft).length + tasks.filter((t) => t.draft).length;
+  console.log(`${course.title} (${course.slug}): ${lessons.length} lekcji, ${tasks.length} zadań${drafts ? `, w tym szkiców (widzi je tylko nauczyciel): ${drafts}` : ''}`);
+  ok = validate(course.language, tasks) && ok;
 }
 if (!ok) {
   console.error('Walidacja nie przeszła, nic nie zostało wgrane.');
@@ -91,14 +91,14 @@ for (const { course, lessons, tasks } of courses) {
   check('course', saved);
   const courseId = saved.data.id;
 
-  const liveLessons = lessons.filter((l) => !l.draft).map(({ draft, ...l }) => ({ ...l, course_id: courseId }));
-  const liveTasks = tasks.filter((t) => !t.draft).map(({ draft, solution, bad, ...t }) => ({ ...t, course_id: courseId }));
-  if (liveLessons.length) check('lessons', await db.from('lms_lessons').upsert(liveLessons, { onConflict: 'course_id,number' }));
-  if (liveTasks.length) check('tasks', await db.from('lms_tasks').upsert(liveTasks, { onConflict: 'course_id,slug' }));
+  const lessonRows = lessons.map((l) => ({ ...l, course_id: courseId }));
+  const taskRows = tasks.map(({ solution, bad, ...t }) => ({ ...t, course_id: courseId }));
+  if (lessonRows.length) check('lessons', await db.from('lms_lessons').upsert(lessonRows, { onConflict: 'course_id,number' }));
+  if (taskRows.length) check('tasks', await db.from('lms_tasks').upsert(taskRows, { onConflict: 'course_id,slug' }));
 
   // Tasks removed from the folder are reported, not deleted: deleting would also delete students' attempts.
   const { data: remote } = await db.from('lms_tasks').select('slug').eq('course_id', courseId);
-  const orphans = (remote ?? []).map((r) => r.slug).filter((s) => !liveTasks.some((t) => t.slug === s));
+  const orphans = (remote ?? []).map((r) => r.slug).filter((s) => !taskRows.some((t) => t.slug === s));
   if (orphans.length) console.warn(`  ! w bazie są zadania, których nie ma w folderze (zostawione): ${orphans.join(', ')}`);
   console.log(`  wgrano: ${course.slug}`);
 }

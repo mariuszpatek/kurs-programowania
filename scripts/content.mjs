@@ -4,7 +4,7 @@
 //   <course>/course.yaml              slug, title, language, level, description
 //   <course>/tutor-prompt.md          AI tutor prompt; {{topics}} = topics of lessons so far
 //   <course>/lessons/01.md            frontmatter: number, title, topics, draft?
-//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, starter_code?, predict_code?, draft?
+//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?, draft?
 //   <course>/tasks/01/01-name.test.py tests
 //   <course>/solutions/01/01-name.py  reference solution (.txt for predict tasks); 01-name.bad-*.py wrong ones
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -73,6 +73,7 @@ export function loadCourse(dir) {
         starter_code: meta.starter_code ?? '',
         predict_code: meta.predict_code ?? '',
         tests: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.test.py`)) ?? '',
+        in_class: Boolean(meta.in_class),
         draft: Boolean(meta.draft),
         // validation only, never uploaded
         solution: readIfExists(join(solutionsDir, `${name}.${kind === 'predict' ? 'txt' : 'py'}`)),

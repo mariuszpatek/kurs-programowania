@@ -14,7 +14,7 @@ export type Course = {
   tutor_prompt: string;
 };
 export type Enrollment = { email: string; course_id: string; unlocked_through: number };
-export type Lesson = { id: string; course_id: string; number: number; title: string; topics: string[]; body_md: string };
+export type Lesson = { id: string; course_id: string; number: number; title: string; topics: string[]; body_md: string; draft: boolean };
 export type Task = {
   id: string;
   course_id: string;
@@ -27,6 +27,10 @@ export type Task = {
   starter_code: string;
   predict_code: string;
   tests: string;
+  /** Done together during the lesson rather than as homework. */
+  in_class: boolean;
+  /** Visible to the teacher only (RLS). */
+  draft: boolean;
 };
 export type Access = { email: string; isTeacher: boolean; courses: Course[]; enrollments: Enrollment[] };
 

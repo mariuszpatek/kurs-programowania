@@ -60,8 +60,9 @@ import { param } from '../lib/url';
       $('notes-link').textContent = `Notatki: ${lesson.title}`;
       $('notes-link').hidden = false;
     }
-    $('task-number').textContent = `Lekcja ${String(task.lesson_number).padStart(2, '0')} · Zadanie ${task.number}`;
+    $('task-number').textContent = `Lekcja ${String(task.lesson_number).padStart(2, '0')} · ${task.in_class ? 'Na lekcji' : 'Zadanie domowe'} ${task.number}`;
     $('task-title').textContent = task.title;
+    if (task.draft) $('task-title').append(Object.assign(document.createElement('span'), { className: 'draft-badge', textContent: 'szkic' }));
     $('task-body').innerHTML = renderMarkdown(task.body_md);
     enhanceCodeBlocks($('task-body'));
     const language = languageById(course.language);

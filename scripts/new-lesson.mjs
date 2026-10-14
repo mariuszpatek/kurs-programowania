@@ -2,7 +2,8 @@
 //
 //   npm run new-lesson -- python-podstawy
 //
-// Fill in the files, remove `draft: true` from the lesson and the tasks, then `npm run sync-content`.
+// Fill in the files and run `npm run sync-content`: drafts are visible to the teacher only.
+// When the lesson is ready, remove `draft: true` from the lesson and the tasks and sync again.
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { contentRoot, courseDirs, loadCourse, pad } from './content.mjs';
@@ -86,4 +87,4 @@ for (const [path, content] of Object.entries(files)) {
   writeFileSync(full, content);
   console.log(`  + ${path}`);
 }
-console.log(`Lekcja ${number} utworzona jako szkic. Uzupełnij pliki, usuń „draft: true” i uruchom npm run sync-content.`);
+console.log(`Lekcja ${number} utworzona jako szkic. Po npm run sync-content zobaczysz ją na stronie tylko Ty. Gdy będzie gotowa, usuń „draft: true” i wgraj ponownie.`);

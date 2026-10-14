@@ -12,8 +12,9 @@ import { url } from '../lib/url';
 </Layout>
 
 <script>
-  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, taskPath, courseLabel } from '../lib/content';
+  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, courseLabel } from '../lib/content';
   import { taskStatuses } from '../lib/progress';
+  import { renderTaskList } from '../lib/task-list';
   import { param } from '../lib/url';
 
   const el = (tag: string, text = '', className = '') => {
@@ -22,7 +23,6 @@ import { url } from '../lib/url';
     if (className) e.className = className;
     return e;
   };
-  const STATUS_TEXT = { done: 'zaliczone', started: 'w trakcie', todo: 'do zrobienia' };
 
   requireAccess().then(async (access) => {
     if (!access) return;
@@ -58,6 +58,7 @@ import { url } from '../lib/url';
         const heading = el('div', '', 'lesson-heading');
         const headingText = el('div');
         headingText.append(el('p', `Lekcja ${String(lesson.number).padStart(2, '0')}`, 'eyebrow'), title);
+        if (lesson.draft) title.append(el('span', 'szkic: widzisz tylko Ty', 'draft-badge'));
         const notes = el('a', 'Notatki z lekcji →', 'notes button') as HTMLAnchorElement;
         notes.href = lessonPath(course, lesson.number);
         heading.append(headingText, notes);
@@ -71,17 +72,9 @@ import { url } from '../lib/url';
         card.append(progress);
         requestAnimationFrame(() => (fill.style.width = `${lessonTasks.length ? (100 * done) / lessonTasks.length : 0}%`));
 
-        const rows = el('ol', '', 'row-list tasks');
-        for (const t of lessonTasks) {
-          const status = statuses.get(t.id) ?? 'todo';
-          const row = el('a', '', 'row') as HTMLAnchorElement;
-          row.href = taskPath(course, t);
-          row.append(el('span', String(t.number), 'row-number'), el('span', t.title, 'row-title'), el('span', STATUS_TEXT[status], `status-dot ${status}`));
-          const li = el('li');
-          li.append(row);
-          rows.append(li);
-        }
-        card.append(rows);
+        const taskList = el('div', '', 'tasks');
+        renderTaskList(taskList, course, lessonTasks, statuses);
+        card.append(taskList);
         return card;
       }),
     );
