@@ -29,20 +29,20 @@ import Layout from '../layouts/Layout.astro';
 
   <nav class="panel-nav" id="panel-nav" hidden>
     <a href="#students">Uczniowie</a>
-    <a href="#lesson-notes">Notatki do lekcji</a>
+    <a href="#lesson-notes">Lekcje</a>
   </nav>
 
   <div id="students" class="students"></div>
 
   <section class="lesson-notes" id="lesson-notes" hidden>
-    <h2>Notatki do lekcji</h2>
-    <p class="muted">Plan, dodatkowe przykłady i odpowiedzi. Widzi je tylko nauczyciel, także na górze strony każdej lekcji.</p>
+    <h2>Lekcje</h2>
+    <p class="muted">Publikacja lekcji i notatki dla nauczyciela (plan, przykłady, odpowiedzi). Szkic widzisz tylko Ty, a po publikacji widzą go uczniowie, którzy mają odblokowaną tę lekcję.</p>
     <div id="lesson-notes-list"></div>
   </section>
 </Layout>
 
 <script>
-  import { requireAccess, lessons, tasks, teacherNotes, lessonPath, type Course, type Enrollment, type Lesson, type Task } from '../lib/content';
+  import { requireAccess, lessons, tasks, teacherNotes, setLessonPublished, lessonPath, type Course, type Enrollment, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { supabase } from '../lib/supabase';
 
@@ -195,25 +195,65 @@ import Layout from '../layouts/Layout.astro';
     return card;
   }
 
-  function showLessonNotes() {
-    const blocks = [...courseData.values()].flatMap(({ course, lessons: ls, notes }) =>
-      ls
-        .filter((l) => notes.has(l.number))
-        .map((l) => {
-          const item = el('details', '', 'note-item');
-          const summary = el('summary');
-          summary.append(el('span', `${course.title} · Lekcja ${l.number}`, 'eyebrow'), el('span', l.title, 'note-title'));
-          const body = el('div', '', 'prose');
-          body.innerHTML = renderMarkdown(notes.get(l.number)!);
-          enhanceCodeBlocks(body);
-          const open = el('a', 'Otwórz lekcję →', 'note-link') as HTMLAnchorElement;
-          open.href = lessonPath(course, l.number);
-          item.append(summary, open, body);
-          return item;
-        }),
-    );
-    if (!blocks.length) return;
-    $('lesson-notes-list').replaceChildren(...blocks);
+  function lessonRow(course: Course, lesson: Lesson, notes: string | undefined) {
+    const item = el('div', '', 'lesson-row');
+    const head = el('div', '', 'lesson-row-head');
+    const title = el('div');
+    const link = el('a', lesson.title, 'note-title') as HTMLAnchorElement;
+    link.href = lessonPath(course, lesson.number);
+    title.append(el('span', `${course.title} · Lekcja ${lesson.number}`, 'eyebrow'), link);
+
+    const state = el('div', '', 'lesson-state');
+    const badge = el('span');
+    const message = el('span', '', 'muted state-message');
+    const render = () => {
+      badge.className = lesson.draft ? 'draft-badge' : 'status-dot done';
+      badge.textContent = lesson.draft ? 'szkic' : 'opublikowana';
+      button.textContent = lesson.draft ? 'Opublikuj' : 'Cofnij do szkicu';
+      button.className = lesson.draft ? 'primary' : 'ghost';
+    };
+    // publishing is one click; hiding a lesson from students again needs a second click to confirm
+    let armed: number | undefined;
+    const button = el('button');
+    button.addEventListener('click', async () => {
+      if (!lesson.draft && !armed) {
+        button.textContent = 'Na pewno? Uczniowie przestaną ją widzieć';
+        armed = window.setTimeout(() => ((armed = undefined), render()), 3000);
+        return;
+      }
+      clearTimeout(armed);
+      armed = undefined;
+      button.disabled = true;
+      const error = await setLessonPublished(course.id, lesson.number, lesson.draft);
+      button.disabled = false;
+      if (error) {
+        message.textContent = `Nie udało się: ${error}`;
+        return;
+      }
+      lesson.draft = !lesson.draft;
+      message.textContent = lesson.draft ? 'Cofnięta do szkicu.' : 'Opublikowana. Pamiętaj, żeby odblokować ją uczniom (+ przy uczniu).';
+      render();
+    });
+    render();
+    state.append(badge, button);
+    head.append(title, state);
+    item.append(head, message);
+
+    if (notes) {
+      const details = el('details', '', 'note-item');
+      const body = el('div', '', 'prose');
+      body.innerHTML = renderMarkdown(notes);
+      enhanceCodeBlocks(body);
+      details.append(el('summary', 'Notatki dla nauczyciela'), body);
+      item.append(details);
+    }
+    return item;
+  }
+
+  function showLessons() {
+    const rows = [...courseData.values()].flatMap(({ course, lessons: ls, notes }) => ls.map((l) => lessonRow(course, l, notes.get(l.number))));
+    if (!rows.length) return;
+    $('lesson-notes-list').replaceChildren(...rows);
     $('lesson-notes').hidden = false;
     $('panel-nav').hidden = false;
   }
@@ -258,7 +298,7 @@ import Layout from '../layouts/Layout.astro';
       }),
     );
     $('add-student').hidden = false;
-    showLessonNotes();
+    showLessons();
     await load();
   });
 
@@ -321,28 +361,57 @@ import Layout from '../layouts/Layout.astro';
     gap: 12px;
     margin-top: 20px;
   }
-  #lesson-notes-list :global(.note-item) {
-    border: 1px dashed color-mix(in srgb, #c27a12 55%, transparent);
+  #lesson-notes-list :global(.lesson-row) {
+    padding: 18px 22px;
+    border: 1px solid var(--line);
     border-radius: 12px;
-    background: color-mix(in srgb, #c27a12 5%, var(--surface));
-    padding: 0 20px;
+    background: var(--surface);
   }
-  #lesson-notes-list :global(.note-item > summary) {
+  #lesson-notes-list :global(.lesson-row-head) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px 24px;
+    flex-wrap: wrap;
+  }
+  #lesson-notes-list :global(.lesson-row-head > div:first-child) {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 14px 0;
-    cursor: pointer;
-    list-style: none;
   }
   #lesson-notes-list :global(.note-title) {
     font-weight: 600;
     font-size: 1.05rem;
+    color: var(--text);
   }
-  #lesson-notes-list :global(.note-link) {
-    display: inline-block;
-    margin-bottom: 12px;
+  #lesson-notes-list :global(.lesson-state) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #lesson-notes-list :global(.lesson-state .draft-badge) {
+    margin-left: 0;
+  }
+  #lesson-notes-list :global(.state-message) {
+    display: block;
+    font-size: 13.5px;
+    margin-top: 6px;
+  }
+  #lesson-notes-list :global(.state-message:empty) {
+    display: none;
+  }
+  #lesson-notes-list :global(.note-item) {
+    margin-top: 14px;
+    padding: 0 16px;
+    border: 1px dashed color-mix(in srgb, #c27a12 55%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, #c27a12 5%, var(--surface));
+  }
+  #lesson-notes-list :global(.note-item > summary) {
+    padding: 10px 0;
+    cursor: pointer;
     font-size: 14px;
+    font-weight: 500;
   }
   .add {
     margin-top: 32px;

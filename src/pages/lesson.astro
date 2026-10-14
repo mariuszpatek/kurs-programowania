@@ -15,6 +15,10 @@ import Layout from '../layouts/Layout.astro';
         <p class="eyebrow" id="lesson-number"></p>
         <h1 id="lesson-title"></h1>
         <p class="lesson-meta" id="lesson-meta"></p>
+        <div class="publish-bar" id="publish-bar" hidden>
+          <button class="primary" id="publish">Opublikuj lekcję</button>
+          <span class="muted" id="publish-message">Szkic widzisz tylko Ty. Po publikacji zobaczą go uczniowie, którzy mają odblokowaną tę lekcję.</span>
+        </div>
       </header>
 
       <details class="teacher-notes" id="teacher-notes" hidden>
@@ -59,7 +63,7 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-  import { requireAccess, courseBySlug, lessons, tasks, teacherNotes, coursePath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
+  import { requireAccess, courseBySlug, lessons, tasks, teacherNotes, setLessonPublished, coursePath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { splitIntoSections, mountOutline, readingMinutes } from '../lib/lesson-outline';
   import { languageById } from '../lib/languages';
@@ -138,7 +142,22 @@ import Layout from '../layouts/Layout.astro';
     $('back').textContent = `← ${course.title}`;
     $('lesson-number').textContent = `Lekcja ${String(lesson.number).padStart(2, '0')}`;
     $('lesson-title').textContent = lesson.title;
-    if (lesson.draft) $('lesson-title').append(el('span', 'szkic: widzisz tylko Ty', 'draft-badge'));
+    if (lesson.draft) {
+      $('lesson-title').append(el('span', 'szkic: widzisz tylko Ty', 'draft-badge'));
+      $('publish-bar').hidden = false;
+      $('publish').addEventListener('click', async () => {
+        ($('publish') as HTMLButtonElement).disabled = true;
+        const error = await setLessonPublished(course.id, lesson.number, true);
+        if (error) {
+          $('publish-message').textContent = `Nie udało się: ${error}`;
+          ($('publish') as HTMLButtonElement).disabled = false;
+          return;
+        }
+        $('lesson-title').querySelector('.draft-badge')?.remove();
+        $('publish').remove();
+        $('publish-message').textContent = 'Opublikowana. Uczeń zobaczy ją, gdy odblokujesz mu tę lekcję w panelu (+).';
+      });
+    }
     if (access.isTeacher) {
       const notes = (await teacherNotes(course.id)).get(lesson.number);
       if (notes) {
@@ -261,6 +280,18 @@ import Layout from '../layouts/Layout.astro';
     color: var(--text-3);
     font-size: 14px;
     margin: 0;
+  }
+  .publish-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px dashed color-mix(in srgb, #c27a12 55%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, #c27a12 5%, var(--surface));
+    font-size: 14px;
   }
 
   /* numbered sections built by splitIntoSections() */

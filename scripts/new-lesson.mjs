@@ -1,9 +1,9 @@
-// Creates the next lesson of a course with one example task, as a draft.
+// Creates the next lesson of a course with one example task.
 //
 //   npm run new-lesson -- python-podstawy
 //
-// Fill in the files and run `npm run sync-content`: drafts are visible to the teacher only.
-// When the lesson is ready, remove `draft: true` from the lesson and the tasks and sync again.
+// Fill in the files and run `npm run sync-content`: a new lesson arrives as a draft only the teacher sees.
+// When it is ready, publish it with the button in the teacher dashboard.
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { contentRoot, courseDirs, loadCourse, pad } from './content.mjs';
@@ -27,7 +27,6 @@ title: Tytuł lekcji ${number}
 topics:
   - pierwszy temat
   - drugi temat
-draft: true
 ---
 
 ## Pierwszy temat
@@ -58,7 +57,6 @@ number: 1
 kind: code
 starter_code: |
   # tu zaczyna uczeń
-draft: true
 ---
 
 Treść zadania. Jak ma wyglądać wynik:
@@ -87,4 +85,4 @@ for (const [path, content] of Object.entries(files)) {
   writeFileSync(full, content);
   console.log(`  + ${path}`);
 }
-console.log(`Lekcja ${number} utworzona jako szkic. Po npm run sync-content zobaczysz ją na stronie tylko Ty. Gdy będzie gotowa, usuń „draft: true” i wgraj ponownie.`);
+console.log(`Lekcja ${number} utworzona. Po npm run sync-content zobaczysz ją na stronie jako szkic (tylko Ty). Publikujesz ją przyciskiem w panelu.`);

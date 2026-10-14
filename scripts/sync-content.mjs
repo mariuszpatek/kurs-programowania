@@ -5,9 +5,9 @@
 //   npm run sync-content -- --dry-run          validate only
 //
 // Course content is private: it lives outside this public repo and reaches students only through
-// Supabase, which serves each student the lessons unlocked for them (RLS). Lessons and tasks marked
-// `draft: true` are uploaded too, but only the teacher sees them (RLS), so they can be reviewed on the site.
-// Reference solutions are used for validation and never uploaded.
+// Supabase, which serves each student the lessons unlocked for them (RLS). A new lesson arrives as a draft
+// that only the teacher sees; the teacher publishes it with the button in the dashboard. Syncing never
+// changes whether an existing lesson is published. Reference solutions are used for validation and never uploaded.
 //
 // Needs PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.
 import { existsSync } from 'node:fs';
@@ -48,8 +48,7 @@ function validate(language, tasks) {
 const courses = dirs.map(loadCourse);
 let ok = true;
 for (const { course, lessons, tasks } of courses) {
-  const drafts = lessons.filter((l) => l.draft).length + tasks.filter((t) => t.draft).length;
-  console.log(`${course.title} (${course.slug}): ${lessons.length} lekcji, ${tasks.length} zadań${drafts ? `, w tym szkiców (widzi je tylko nauczyciel): ${drafts}` : ''}`);
+  console.log(`${course.title} (${course.slug}): ${lessons.length} lekcji, ${tasks.length} zadań`);
   ok = validate(course.language, tasks) && ok;
 }
 if (!ok) {
@@ -91,8 +90,21 @@ for (const { course, lessons, tasks, teacherNotes } of courses) {
   check('course', saved);
   const courseId = saved.data.id;
 
-  const lessonRows = lessons.map((l) => ({ ...l, course_id: courseId }));
-  const taskRows = tasks.map(({ solution, bad, ...t }) => ({ ...t, course_id: courseId }));
+  // Keep the published/draft state the teacher set in the dashboard; new lessons start as drafts
+  // and new tasks take the state of their lesson.
+  const [{ data: remoteLessons }, { data: remoteTasks }] = await Promise.all([
+    db.from('lms_lessons').select('number, draft').eq('course_id', courseId),
+    db.from('lms_tasks').select('slug, draft').eq('course_id', courseId),
+  ]);
+  const lessonDraft = new Map((remoteLessons ?? []).map((l) => [l.number, l.draft]));
+  const taskDraft = new Map((remoteTasks ?? []).map((t) => [t.slug, t.draft]));
+  const lessonRows = lessons.map((l) => ({ ...l, course_id: courseId, draft: lessonDraft.get(l.number) ?? true }));
+  const taskRows = tasks.map(({ solution, bad, ...t }) => ({
+    ...t,
+    course_id: courseId,
+    draft: taskDraft.get(t.slug) ?? lessonDraft.get(t.lesson_number) ?? true,
+  }));
+  const newDrafts = lessonRows.filter((l) => !lessonDraft.has(l.number)).map((l) => l.number);
   if (lessonRows.length) check('lessons', await db.from('lms_lessons').upsert(lessonRows, { onConflict: 'course_id,number' }));
   if (taskRows.length) check('tasks', await db.from('lms_tasks').upsert(taskRows, { onConflict: 'course_id,slug' }));
 
@@ -114,4 +126,7 @@ for (const { course, lessons, tasks, teacherNotes } of courses) {
   const orphans = (remote ?? []).map((r) => r.slug).filter((s) => !taskRows.some((t) => t.slug === s));
   if (orphans.length) console.warn(`  ! w bazie są zadania, których nie ma w folderze (zostawione): ${orphans.join(', ')}`);
   console.log(`  wgrano: ${course.slug}${noteRows.length ? `, notatki nauczyciela do lekcji: ${withNotes.join(', ')}` : ''}`);
+  const drafts = lessonRows.filter((l) => l.draft).map((l) => l.number);
+  if (drafts.length) console.log(`  szkice (widzi je tylko nauczyciel, publikacja w panelu): lekcja ${drafts.join(', ')}`);
+  if (newDrafts.length) console.log(`  nowe lekcje: ${newDrafts.join(', ')}`);
 }

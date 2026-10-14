@@ -63,6 +63,16 @@ export async function courseBySlug(slug: string): Promise<Course | null> {
   return data;
 }
 
+/** Publishes a lesson with its tasks, or turns it back into a teacher-only draft. Teachers only. */
+export async function setLessonPublished(courseId: string, lessonNumber: number, published: boolean): Promise<string | null> {
+  const { error } = await supabase.rpc('lms_set_lesson_published', {
+    p_course_id: courseId,
+    p_lesson_number: lessonNumber,
+    p_published: published,
+  });
+  return error?.message ?? null;
+}
+
 /** Teacher-only notes per lesson number; empty for students (RLS returns no rows). */
 export async function teacherNotes(courseId: string): Promise<Map<number, string>> {
   const { data } = await supabase.from('lms_teacher_notes').select('lesson_number, body_md').eq('course_id', courseId);

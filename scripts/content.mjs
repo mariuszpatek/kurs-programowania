@@ -3,9 +3,11 @@
 // <content root>/                     default ../korepetycje_python/platforma (or CONTENT_DIR in .env)
 //   <course>/course.yaml              slug, title, language, level, description
 //   <course>/tutor-prompt.md          AI tutor prompt; {{topics}} = topics of lessons so far
-//   <course>/lessons/01.md            frontmatter: number, title, topics, draft?
+//   <course>/lessons/01.md            frontmatter: number, title, topics
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
-//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?, draft?
+//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?
+//
+// Whether a lesson is published is not in these files: the teacher publishes it in the dashboard.
 //   <course>/tasks/01/01-name.test.py tests
 //   <course>/solutions/01/01-name.py  reference solution (.txt for predict tasks); 01-name.bad-*.py wrong ones
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -54,7 +56,7 @@ export function loadCourse(dir) {
     .filter((f) => f.endsWith('.md') && !f.endsWith('.teacher.md'))
     .map((f) => {
       const { meta, body } = frontmatter(read(join(dir, 'lessons', f)), f);
-      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: body, draft: Boolean(meta.draft) };
+      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: body };
     });
 
   // lessons/01.teacher.md belongs to the lesson whose file is lessons/01.md
@@ -84,7 +86,6 @@ export function loadCourse(dir) {
         predict_code: meta.predict_code ?? '',
         tests: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.test.py`)) ?? '',
         in_class: Boolean(meta.in_class),
-        draft: Boolean(meta.draft),
         // validation only, never uploaded
         solution: readIfExists(join(solutionsDir, `${name}.${kind === 'predict' ? 'txt' : 'py'}`)),
         bad: listDir(solutionsDir)

@@ -36,7 +36,7 @@ npm run sync-content -- --dry-run         # sama walidacja
 npm run sync-content                      # walidacja i wgranie wszystkich kursów
 ```
 
-Szkic (`draft: true`) też trafia do bazy, ale widzi go tylko nauczyciel (z oznaczeniem „szkic”), więc można przejrzeć lekcję na stronie przed zajęciami. Gdy jest gotowa: usuń `draft: true` z lekcji i zadań i wgraj ponownie.
+Nowa lekcja trafia do bazy jako szkic: widzi ją tylko nauczyciel (z oznaczeniem „szkic”), więc można ją przejrzeć na stronie przed zajęciami. Publikuje się ją przyciskiem w panelu (sekcja „Lekcje”) albo na stronie lekcji. `sync-content` nie zmienia tego, czy lekcja jest opublikowana, a nowe zadanie dostaje status swojej lekcji. Uczeń widzi opublikowaną lekcję, gdy ma ją odblokowaną (+ przy uczniu).
 
 Zadania z `in_class: true` są na liście osobno, jako „Na lekcji”, przed zadaniami domowymi.
 
