@@ -42,7 +42,7 @@ import Layout from '../layouts/Layout.astro';
 </Layout>
 
 <script>
-  import { requireAccess, lessons, tasks, teacherNotes, setLessonPublished, lessonPath, type Course, type Enrollment, type Lesson, type Task } from '../lib/content';
+  import { requireAccess, setPreviewAsStudent, lessons, tasks, teacherNotes, setLessonPublished, lessonPath, type Course, type Enrollment, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { splitTeacherNotes, notesAsMarkdown } from '../lib/teacher-notes';
   import { supabase } from '../lib/supabase';
@@ -281,6 +281,12 @@ import Layout from '../layouts/Layout.astro';
 
   requireAccess().then(async (access) => {
     if (!access) return;
+    if (access.previewing) {
+      // the dashboard makes no sense as a student: leave the preview
+      setPreviewAsStudent(false);
+      location.reload();
+      return;
+    }
     if (!access.isTeacher) {
       alertInline('Ta strona jest tylko dla nauczyciela.');
       return;

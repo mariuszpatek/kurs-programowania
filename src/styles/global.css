@@ -170,6 +170,31 @@ a:hover {
   text-decoration: none;
 }
 
+/* "Preview as a student" (src/lib/content.ts): a nav button for the teacher and a bar while it is on */
+.site-header nav .preview-toggle {
+  font-size: 14px;
+  padding: 6px 10px;
+  margin-left: 4px;
+  color: #b06a08;
+}
+
+.preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  font-size: 14px;
+  background: color-mix(in srgb, #c27a12 12%, var(--surface));
+  border-bottom: 1px dashed color-mix(in srgb, #c27a12 55%, transparent);
+}
+
+.preview-bar button {
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
 /* ---------- page ---------- */
 
 .page {
@@ -753,6 +778,10 @@ textarea {
   }
   .site-header nav a {
     padding: 6px 8px;
+  }
+  .site-header nav .preview-toggle {
+    padding: 6px 8px;
+    margin-left: 0;
   }
   .site-header-inner,
   .page {

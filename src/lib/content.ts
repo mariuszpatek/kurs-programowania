@@ -34,7 +34,37 @@ export type Task = {
   /** Visible to the teacher only (RLS). */
   draft: boolean;
 };
-export type Access = { email: string; isTeacher: boolean; courses: Course[]; enrollments: Enrollment[] };
+export type Access = {
+  email: string;
+  /** False while a teacher previews the site as a student. */
+  isTeacher: boolean;
+  /** A teacher account, also during the preview. */
+  canPreview: boolean;
+  previewing: boolean;
+  courses: Course[];
+  enrollments: Enrollment[];
+};
+
+// "Preview as a student": the teacher sees the pages without teacher notes and drafts. It only hides
+// things in this browser; what a real student gets is still decided by RLS.
+const PREVIEW_KEY = 'kurs:preview-student';
+
+export function previewingAsStudent(): boolean {
+  try {
+    return localStorage.getItem(PREVIEW_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setPreviewAsStudent(on: boolean) {
+  try {
+    if (on) localStorage.setItem(PREVIEW_KEY, '1');
+    else localStorage.removeItem(PREVIEW_KEY);
+  } catch {
+    // private mode: the preview cannot be switched on
+  }
+}
 
 let access: Promise<Access | null> | null = null;
 
@@ -55,7 +85,15 @@ export function requireAccess(): Promise<Access | null> {
       supabase.from('lms_enrollments').select('email, course_id, unlocked_through').eq('email', user.email!.toLowerCase()),
     ]);
     if (!isTeacher && !enrollments?.length) return null;
-    return { email: user.email!, isTeacher: Boolean(isTeacher), courses: courses ?? [], enrollments: enrollments ?? [] };
+    const previewing = Boolean(isTeacher) && previewingAsStudent();
+    return {
+      email: user.email!,
+      isTeacher: Boolean(isTeacher) && !previewing,
+      canPreview: Boolean(isTeacher),
+      previewing,
+      courses: courses ?? [],
+      enrollments: enrollments ?? [],
+    };
   })();
   return access;
 }
@@ -77,24 +115,26 @@ export async function setLessonPublished(courseId: string, lessonNumber: number,
 
 /** Teacher-only notes per lesson number; empty for students (RLS returns no rows). */
 export async function teacherNotes(courseId: string): Promise<Map<number, string>> {
+  if (previewingAsStudent()) return new Map();
   const { data } = await supabase.from('lms_teacher_notes').select('lesson_number, body_md').eq('course_id', courseId);
   return new Map((data ?? []).map((n) => [n.lesson_number, n.body_md]));
 }
 
 /** Teacher-only note (solution, explanation) for one task; null for students (RLS returns no rows). */
 export async function taskNote(courseId: string, slug: string): Promise<string | null> {
+  if (previewingAsStudent()) return null;
   const { data } = await supabase.from('lms_task_notes').select('body_md').eq('course_id', courseId).eq('slug', slug).maybeSingle();
   return data?.body_md || null;
 }
 
 export async function lessons(courseId: string): Promise<Lesson[]> {
   const { data } = await supabase.from('lms_lessons').select('*').eq('course_id', courseId).order('number');
-  return data ?? [];
+  return (data ?? []).filter((l) => !(l.draft && previewingAsStudent()));
 }
 
 export async function tasks(courseId: string): Promise<Task[]> {
   const { data } = await supabase.from('lms_tasks').select('*').eq('course_id', courseId).order('lesson_number').order('number');
-  return data ?? [];
+  return (data ?? []).filter((t) => !(t.draft && previewingAsStudent()));
 }
 
 export async function taskBySlug(courseId: string, slug: string): Promise<Task | null> {

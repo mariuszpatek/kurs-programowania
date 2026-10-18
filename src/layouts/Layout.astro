@@ -35,9 +35,17 @@ const coursesActive = path === url() || ['course/', 'lesson/', 'task/'].some((p)
           <a href={url('sandbox/')} aria-current={current(url('sandbox/'))}>Piaskownica</a>
           <a href={url('teacher/')} aria-current={current(url('teacher/'))} id="nav-teacher" hidden>Panel</a>
           <a href={url('account/')} aria-current={current(url('account/'))}>Konto</a>
+          <button class="ghost preview-toggle" id="preview-on" type="button" hidden title="Zobacz stronę bez notatek nauczyciela i szkiców">
+            Podgląd ucznia
+          </button>
         </nav>
       </div>
     </header>
+
+    <div class="preview-bar" id="preview-bar" hidden>
+      <span><strong>Podgląd jako uczeń.</strong> Notatki nauczyciela i szkice są ukryte, podpowiedzi odblokowują się jak u ucznia.</span>
+      <button type="button" id="preview-off">Wyłącz podgląd</button>
+    </div>
 
     <main class:list={['page', { wide }]}>
       {
@@ -67,7 +75,7 @@ const coursesActive = path === url() || ['course/', 'lesson/', 'task/'].some((p)
     {
       !isPublic && (
         <script>
-          import { requireAccess } from '../lib/content';
+          import { requireAccess, setPreviewAsStudent } from '../lib/content';
           import { supabase, currentUser } from '../lib/supabase';
           import { url } from '../lib/url';
 
@@ -84,6 +92,13 @@ const coursesActive = path === url() || ['course/', 'lesson/', 'task/'].some((p)
             }
             document.getElementById('site-nav')!.hidden = false;
             document.getElementById('nav-teacher')!.hidden = !access.isTeacher;
+            if (access.canPreview) {
+              const toggle = (on: boolean) => () => (setPreviewAsStudent(on), location.reload());
+              document.getElementById('preview-on')!.hidden = access.previewing;
+              document.getElementById('preview-on')!.addEventListener('click', toggle(true));
+              document.getElementById('preview-bar')!.hidden = !access.previewing;
+              document.getElementById('preview-off')!.addEventListener('click', toggle(false));
+            }
             document.getElementById('page-content')!.hidden = false;
           });
         </script>
