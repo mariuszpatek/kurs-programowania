@@ -44,6 +44,7 @@ import Layout from '../layouts/Layout.astro';
 <script>
   import { requireAccess, lessons, tasks, teacherNotes, setLessonPublished, lessonPath, type Course, type Enrollment, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
+  import { splitTeacherNotes, notesAsMarkdown } from '../lib/teacher-notes';
   import { supabase } from '../lib/supabase';
 
   type TestResult = { name: string; ok: boolean };
@@ -242,7 +243,8 @@ import Layout from '../layouts/Layout.astro';
     if (notes) {
       const details = el('details', '', 'note-item');
       const body = el('div', '', 'prose');
-      body.innerHTML = renderMarkdown(notes);
+      const { general, inline } = splitTeacherNotes(notes);
+      body.innerHTML = renderMarkdown(notesAsMarkdown(general, inline));
       enhanceCodeBlocks(body);
       details.append(el('summary', 'Notatki dla nauczyciela'), body);
       item.append(details);

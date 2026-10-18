@@ -65,6 +65,7 @@ import Layout from '../layouts/Layout.astro';
 <script>
   import { requireAccess, courseBySlug, lessons, tasks, teacherNotes, setLessonPublished, coursePath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
+  import { splitTeacherNotes, mountInlineNotes, notesAsMarkdown, stripTeacherMarkers } from '../lib/teacher-notes';
   import { splitIntoSections, mountOutline, readingMinutes } from '../lib/lesson-outline';
   import { languageById } from '../lib/languages';
   import { taskStatuses, type TaskStatus } from '../lib/progress';
@@ -88,7 +89,7 @@ import Layout from '../layouts/Layout.astro';
     return [
       `# ${course.title}: lekcja ${lesson.number}. ${lesson.title}`,
       `Tematy: ${lesson.topics.join(', ')}`,
-      lesson.body_md,
+      stripTeacherMarkers(lesson.body_md),
       ...lessonTasks.map((t) =>
         [
           `## Zadanie ${t.number}: ${t.title}`,
@@ -158,22 +159,25 @@ import Layout from '../layouts/Layout.astro';
         $('publish-message').textContent = 'Opublikowana. Uczeń zobaczy ją, gdy odblokujesz mu tę lekcję w panelu (+).';
       });
     }
+    $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
+    enhanceCodeBlocks($('lesson-body'));
+    const minutes = readingMinutes($('lesson-body'));
+
     if (access.isTeacher) {
-      const notes = (await teacherNotes(course.id)).get(lesson.number);
-      if (notes) {
-        $('teacher-notes-body').innerHTML = renderMarkdown(notes);
+      const { general, inline } = splitTeacherNotes((await teacherNotes(course.id)).get(lesson.number) ?? '');
+      // notes pinned to a marker go next to it; the rest (and notes whose marker is missing) stay at the top
+      const top = notesAsMarkdown(general, mountInlineNotes($('lesson-body'), inline));
+      if (top) {
+        $('teacher-notes-body').innerHTML = renderMarkdown(top);
         enhanceCodeBlocks($('teacher-notes-body'));
         $('teacher-notes').hidden = false;
       }
     }
-
-    $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
-    enhanceCodeBlocks($('lesson-body'));
     const outline = splitIntoSections($('lesson-body'));
 
     const lessonTasks = (await tasks(course.id)).filter((t) => t.lesson_number === lesson.number);
     if (lessonTasks.length) showTasks(course, lessonTasks, await taskStatuses(lessonTasks.map((t) => t.id)));
-    $('lesson-meta').textContent = `ok. ${readingMinutes($('lesson-body'))} min czytania · ${taskCount(lessonTasks.length)}`;
+    $('lesson-meta').textContent = `ok. ${minutes} min czytania · ${taskCount(lessonTasks.length)}`;
 
     if (course.tutor_prompt) {
       $('tutor-prompt').innerHTML = renderMarkdown(fence('', tutorPrompt(course, courseLessons, lesson.number)));

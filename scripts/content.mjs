@@ -5,6 +5,7 @@
 //   <course>/tutor-prompt.md          AI tutor prompt; {{topics}} = topics of lessons so far
 //   <course>/lessons/01.md            frontmatter: number, title, topics
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
+//                                     "## @slug Title" sections show up at <!-- nauczyciel: slug --> in the lesson
 //   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?
 //
 // Whether a lesson is published is not in these files: the teacher publishes it in the dashboard.

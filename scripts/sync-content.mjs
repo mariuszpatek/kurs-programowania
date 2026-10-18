@@ -45,11 +45,31 @@ function validate(language, tasks) {
   return result.status === 0;
 }
 
+/** Every "## @slug" note needs its <!-- nauczyciel: slug --> marker in the lesson and the other way round (src/lib/teacher-notes.ts). */
+function checkNoteMarkers(lessons, teacherNotes) {
+  let ok = true;
+  for (const lesson of lessons) {
+    const notes = teacherNotes.find((n) => n.lesson_number === lesson.number)?.body_md ?? '';
+    const noteSlugs = [...notes.replace(/^\s*```[\s\S]*?^\s*```/gm, '').matchAll(/^## @([\w-]+)/gm)].map((m) => m[1]);
+    const markers = [...lesson.body_md.matchAll(/<!--\s*nauczyciel:\s*([\w-]+)\s*-->/g)].map((m) => m[1]);
+    const fail = (message) => {
+      console.error(`  ✗ lekcja ${lesson.number}: ${message}`);
+      ok = false;
+    };
+    for (const slug of noteSlugs.filter((s, i) => noteSlugs.indexOf(s) !== i)) fail(`notatka @${slug} jest dwa razy w .teacher.md`);
+    for (const slug of markers.filter((s, i) => markers.indexOf(s) !== i)) fail(`znacznik „nauczyciel: ${slug}” jest dwa razy w lekcji`);
+    for (const slug of noteSlugs.filter((s) => !markers.includes(s))) fail(`notatka @${slug} nie ma znacznika <!-- nauczyciel: ${slug} --> w lekcji`);
+    for (const slug of markers.filter((s) => !noteSlugs.includes(s))) fail(`znacznik „nauczyciel: ${slug}” nie ma notatki „## @${slug}” w .teacher.md`);
+  }
+  return ok;
+}
+
 const courses = dirs.map(loadCourse);
 let ok = true;
-for (const { course, lessons, tasks } of courses) {
+for (const { course, lessons, tasks, teacherNotes } of courses) {
   console.log(`${course.title} (${course.slug}): ${lessons.length} lekcji, ${tasks.length} zadań`);
   ok = validate(course.language, tasks) && ok;
+  ok = checkNoteMarkers(lessons, teacherNotes) && ok;
 }
 if (!ok) {
   console.error('Walidacja nie przeszła, nic nie zostało wgrane.');

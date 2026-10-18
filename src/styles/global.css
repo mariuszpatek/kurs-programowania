@@ -447,6 +447,15 @@ blockquote {
   margin-top: 4px;
 }
 
+/* a note pinned to a spot in the lesson (src/lib/teacher-notes.ts) */
+.teacher-notes.teacher-inline {
+  margin: 20px 0 28px;
+}
+
+.teacher-inline > summary {
+  font-size: 14.5px;
+}
+
 .teacher-notes-body td:first-child {
   white-space: nowrap;
 }
