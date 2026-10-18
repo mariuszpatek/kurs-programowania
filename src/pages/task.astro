@@ -15,6 +15,10 @@ import Assistant from '../components/Assistant.astro';
       <p class="eyebrow" id="task-number"></p>
       <h1 id="task-title"></h1>
       <div class="prose" id="task-body"><p class="loading">Ładuję zadanie…</p></div>
+      <details class="teacher-notes task-notes" id="task-notes" hidden>
+        <summary>Rozwiązanie i wyjaśnienie <span class="teacher-only">tylko Ty to widzisz</span></summary>
+        <div class="prose teacher-notes-body" id="task-notes-body"></div>
+      </details>
       <p class="next" id="task-next" hidden>
         <span class="eyebrow">Następne</span>
         <a href="#"></a>
@@ -29,7 +33,7 @@ import Assistant from '../components/Assistant.astro';
 </Layout>
 
 <script>
-  import { requireAccess, courseBySlug, lessons, tasks, lessonPath, lessonTasksPath, taskPath, topicsUpTo } from '../lib/content';
+  import { requireAccess, courseBySlug, lessons, tasks, taskNote, lessonPath, lessonTasksPath, taskPath, topicsUpTo } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
   import { mountWorkspace } from '../lib/workspace';
   import { mountPredict } from '../lib/predict';
@@ -65,6 +69,14 @@ import { param } from '../lib/url';
     if (task.draft) $('task-title').append(Object.assign(document.createElement('span'), { className: 'draft-badge', textContent: 'szkic' }));
     $('task-body').innerHTML = renderMarkdown(task.body_md);
     enhanceCodeBlocks($('task-body'));
+    if (access.isTeacher) {
+      const note = await taskNote(course.id, task.slug);
+      if (note) {
+        $('task-notes-body').innerHTML = renderMarkdown(note);
+        enhanceCodeBlocks($('task-notes-body'));
+        $('task-notes').hidden = false;
+      }
+    }
     const language = languageById(course.language);
 
     const next = all[index + 1];

@@ -7,6 +7,7 @@
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
 //                                     "## @slug Title" sections show up at <!-- nauczyciel: slug --> in the lesson
 //   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?
+//   <course>/tasks/01/01-name.teacher.md  solution and explanation for the teacher only; optional
 //
 // Whether a lesson is published is not in these files: the teacher publishes it in the dashboard.
 //   <course>/tasks/01/01-name.test.py tests
@@ -72,7 +73,7 @@ export function loadCourse(dir) {
   const tasks = [];
   for (const lessonFolder of listDir(join(dir, 'tasks'))) {
     const solutionsDir = join(dir, 'solutions', lessonFolder);
-    for (const f of listDir(join(dir, 'tasks', lessonFolder)).filter((f) => f.endsWith('.md'))) {
+    for (const f of listDir(join(dir, 'tasks', lessonFolder)).filter((f) => f.endsWith('.md') && !f.endsWith('.teacher.md'))) {
       const name = basename(f, '.md');
       const { meta, body } = frontmatter(read(join(dir, 'tasks', lessonFolder, f)), f);
       const kind = meta.kind ?? 'code';
@@ -87,6 +88,8 @@ export function loadCourse(dir) {
         predict_code: meta.predict_code ?? '',
         tests: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.test.py`)) ?? '',
         in_class: Boolean(meta.in_class),
+        // uploaded to lms_task_notes (teachers only), not to lms_tasks
+        teacher_notes: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.teacher.md`))?.trim() ?? '',
         // validation only, never uploaded
         solution: readIfExists(join(solutionsDir, `${name}.${kind === 'predict' ? 'txt' : 'py'}`)),
         bad: listDir(solutionsDir)

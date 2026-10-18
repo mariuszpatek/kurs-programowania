@@ -119,7 +119,7 @@ for (const { course, lessons, tasks, teacherNotes } of courses) {
   const lessonDraft = new Map((remoteLessons ?? []).map((l) => [l.number, l.draft]));
   const taskDraft = new Map((remoteTasks ?? []).map((t) => [t.slug, t.draft]));
   const lessonRows = lessons.map((l) => ({ ...l, course_id: courseId, draft: lessonDraft.get(l.number) ?? true }));
-  const taskRows = tasks.map(({ solution, bad, ...t }) => ({
+  const taskRows = tasks.map(({ solution, bad, teacher_notes, ...t }) => ({
     ...t,
     course_id: courseId,
     draft: taskDraft.get(t.slug) ?? lessonDraft.get(t.lesson_number) ?? true,
@@ -141,11 +141,25 @@ for (const { course, lessons, tasks, teacherNotes } of courses) {
       .not('lesson_number', 'in', `(${withNotes.length ? withNotes.join(',') : -1})`),
   );
 
+  // Task notes (solution and explanation) also live in a table that only teachers can read.
+  const taskNoteRows = tasks.filter((t) => t.teacher_notes).map((t) => ({ course_id: courseId, slug: t.slug, body_md: t.teacher_notes }));
+  if (taskNoteRows.length) check('task notes', await db.from('lms_task_notes').upsert(taskNoteRows, { onConflict: 'course_id,slug' }));
+  check(
+    'task notes cleanup',
+    await db
+      .from('lms_task_notes')
+      .delete()
+      .eq('course_id', courseId)
+      .not('slug', 'in', `(${taskNoteRows.map((n) => `"${n.slug}"`).join(',') || '""'})`),
+  );
+
   // Tasks removed from the folder are reported, not deleted: deleting would also delete students' attempts.
   const { data: remote } = await db.from('lms_tasks').select('slug').eq('course_id', courseId);
   const orphans = (remote ?? []).map((r) => r.slug).filter((s) => !taskRows.some((t) => t.slug === s));
   if (orphans.length) console.warn(`  ! w bazie są zadania, których nie ma w folderze (zostawione): ${orphans.join(', ')}`);
   console.log(`  wgrano: ${course.slug}${noteRows.length ? `, notatki nauczyciela do lekcji: ${withNotes.join(', ')}` : ''}`);
+  const withoutNotes = tasks.filter((t) => !t.teacher_notes).map((t) => t.slug);
+  console.log(`  notatki do zadań: ${taskNoteRows.length}/${tasks.length}${withoutNotes.length ? ` (bez: ${withoutNotes.join(', ')})` : ''}`);
   const drafts = lessonRows.filter((l) => l.draft).map((l) => l.number);
   if (drafts.length) console.log(`  szkice (widzi je tylko nauczyciel, publikacja w panelu): lekcja ${drafts.join(', ')}`);
   if (newDrafts.length) console.log(`  nowe lekcje: ${newDrafts.join(', ')}`);

@@ -452,6 +452,11 @@ blockquote {
   margin: 20px 0 28px;
 }
 
+/* solution and explanation under a task (lms_task_notes) */
+.teacher-notes.task-notes {
+  margin: 24px 0;
+}
+
 .teacher-inline > summary {
   font-size: 14.5px;
 }

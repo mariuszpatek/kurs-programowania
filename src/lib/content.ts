@@ -79,6 +79,12 @@ export async function teacherNotes(courseId: string): Promise<Map<number, string
   return new Map((data ?? []).map((n) => [n.lesson_number, n.body_md]));
 }
 
+/** Teacher-only note (solution, explanation) for one task; null for students (RLS returns no rows). */
+export async function taskNote(courseId: string, slug: string): Promise<string | null> {
+  const { data } = await supabase.from('lms_task_notes').select('body_md').eq('course_id', courseId).eq('slug', slug).maybeSingle();
+  return data?.body_md || null;
+}
+
 export async function lessons(courseId: string): Promise<Lesson[]> {
   const { data } = await supabase.from('lms_lessons').select('*').eq('course_id', courseId).order('number');
   return data ?? [];
