@@ -15,6 +15,12 @@ import Assistant from '../components/Assistant.astro';
       <p class="eyebrow" id="task-number"></p>
       <h1 id="task-title"></h1>
       <div class="prose" id="task-body"><p class="loading">Ładuję zadanie…</p></div>
+      <section class="hints" id="task-hints" hidden>
+        <p class="eyebrow">Podpowiedzi</p>
+        <ol class="hint-list"></ol>
+        <p class="hint-info muted" hidden></p>
+        <button class="hint-button" type="button" hidden></button>
+      </section>
       <details class="teacher-notes task-notes" id="task-notes" hidden>
         <summary>Rozwiązanie i wyjaśnienie <span class="teacher-only">tylko Ty to widzisz</span></summary>
         <div class="prose teacher-notes-body" id="task-notes-body"></div>
@@ -38,6 +44,7 @@ import Assistant from '../components/Assistant.astro';
   import { mountWorkspace } from '../lib/workspace';
   import { mountPredict } from '../lib/predict';
   import { mountAssistant } from '../lib/assistant';
+  import { mountHints } from '../lib/hints';
   import { languageById } from '../lib/languages';
 import { param } from '../lib/url';
 
@@ -69,6 +76,7 @@ import { param } from '../lib/url';
     if (task.draft) $('task-title').append(Object.assign(document.createElement('span'), { className: 'draft-badge', textContent: 'szkic' }));
     $('task-body').innerHTML = renderMarkdown(task.body_md);
     enhanceCodeBlocks($('task-body'));
+    mountHints($('task-hints'), task, access.isTeacher);
     if (access.isTeacher) {
       const note = await taskNote(course.id, task.slug);
       if (note) {
@@ -132,6 +140,30 @@ import { param } from '../lib/url';
   }
   .description {
     max-width: 62ch;
+  }
+  .hints {
+    margin: 28px 0;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  .hints .eyebrow {
+    margin: 0 0 8px;
+  }
+  .hint-list {
+    margin: 0 0 8px;
+    padding-left: 20px;
+  }
+  .hint-list:empty {
+    display: none;
+  }
+  .hint-list :global(p) {
+    margin: 0 0 8px;
+  }
+  .hint-info {
+    margin: 0;
+    font-size: 14px;
   }
   .description h1 {
     margin-top: 6px;

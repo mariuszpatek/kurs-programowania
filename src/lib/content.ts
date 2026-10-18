@@ -29,6 +29,8 @@ export type Task = {
   tests: string;
   /** Done together during the lesson rather than as homework. */
   in_class: boolean;
+  /** Graded hints, unlocked one by one after failed checks (src/lib/hints.ts). */
+  hints: string[];
   /** Visible to the teacher only (RLS). */
   draft: boolean;
 };

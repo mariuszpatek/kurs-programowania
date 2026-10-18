@@ -6,7 +6,8 @@
 //   <course>/lessons/01.md            frontmatter: number, title, topics
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
 //                                     "## @slug Title" sections show up at <!-- nauczyciel: slug --> in the lesson
-//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?
+//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?, hints?
+//                                     hints: list of graded hints, the student opens them after failed checks
 //   <course>/tasks/01/01-name.teacher.md  solution and explanation for the teacher only; optional
 //
 // Whether a lesson is published is not in these files: the teacher publishes it in the dashboard.
@@ -77,6 +78,10 @@ export function loadCourse(dir) {
       const name = basename(f, '.md');
       const { meta, body } = frontmatter(read(join(dir, 'tasks', lessonFolder, f)), f);
       const kind = meta.kind ?? 'code';
+      const hints = meta.hints ?? [];
+      if (!Array.isArray(hints) || hints.some((h) => typeof h !== 'string' || !h.trim())) {
+        throw new Error(`${f}: hints must be a list of non-empty texts`);
+      }
       tasks.push({
         lesson_number: Number(lessonFolder),
         number: meta.number,
@@ -88,6 +93,7 @@ export function loadCourse(dir) {
         predict_code: meta.predict_code ?? '',
         tests: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.test.py`)) ?? '',
         in_class: Boolean(meta.in_class),
+        hints: hints.map((h) => h.trim()),
         // uploaded to lms_task_notes (teachers only), not to lms_tasks
         teacher_notes: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.teacher.md`))?.trim() ?? '',
         // validation only, never uploaded

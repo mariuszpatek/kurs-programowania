@@ -26,6 +26,7 @@ export function hasDraft(key: string): boolean {
 export async function saveAttempt(taskId: string, code: string, passed: boolean, results: unknown) {
   const { error } = await supabase.from('lms_attempts').insert({ task_id: taskId, code, passed, results });
   if (error) console.warn('Attempt not saved', error);
+  window.dispatchEvent(new CustomEvent('kurs:attempt', { detail: { taskId, passed } }));
 }
 
 export type TaskStatus = 'done' | 'started' | 'todo';
