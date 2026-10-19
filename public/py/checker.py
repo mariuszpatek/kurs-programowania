@@ -108,12 +108,11 @@ class RunResult:
         return {"output": self.output, "error": self.error}
 
 
-def run(code, stdin=""):
-    """Executes student code. input() reads consecutive lines from `stdin`."""
+def _student_namespace(stdin, out):
+    """Globals for student code: input() reads consecutive lines from `stdin` and echoes them like a terminal."""
     pending = stdin.split("\n") if stdin else []
     if pending and pending[-1] == "":
         pending.pop()
-    out = _Output()
 
     def fake_input(prompt=""):
         out.write(str(prompt))
@@ -123,7 +122,13 @@ def run(code, stdin=""):
         out.write(value + "\n")
         return value
 
-    namespace = {"__name__": "__main__", "__builtins__": dict(vars(builtins), input=fake_input)}
+    return {"__name__": "__main__", "__builtins__": dict(vars(builtins), input=fake_input)}
+
+
+def run(code, stdin=""):
+    """Executes student code. input() reads consecutive lines from `stdin`."""
+    out = _Output()
+    namespace = _student_namespace(stdin, out)
     real_stdout = sys.stdout
     error = None
     try:
@@ -239,3 +244,75 @@ def compare_prediction(code, prediction):
         g = guessed[i] if i < len(guessed) else None
         lines.append({"student": g, "actual": a, "ok": a is not None and g is not None and a.strip() == g.strip()})
     return {"passed": bool(lines) and all(l["ok"] for l in lines), "lines": lines, "error": result.error}
+
+
+MAX_STEPS = 500
+
+
+class TooManySteps(Exception):
+    pass
+
+
+def _describe_variables(namespace):
+    variables = []
+    for name, value in _user_variables(namespace).items():
+        text = repr(value)
+        if len(text) > 80:
+            text = text[:77] + "..."
+        variables.append({"name": name, "type": type(value).__name__, "value": text})
+    return variables
+
+
+def trace(code, stdin=""):
+    """"Step by step" view of a lesson example: the state after every executed line.
+
+    Each step: the line just executed (None before the start), variables, output so far,
+    and an error if the program stopped on that line.
+    """
+    out = _Output()
+    namespace = _student_namespace(stdin, out)
+    steps = []
+    previous = [None]
+
+    def snapshot(error=None):
+        steps.append({"line": previous[0], "variables": _describe_variables(namespace), "output": out.getvalue(), "error": error})
+        if len(steps) > MAX_STEPS:
+            raise TooManySteps()
+
+    def on_line(frame, event, arg):
+        if event == "line":
+            snapshot()
+            previous[0] = frame.f_lineno
+        return on_line
+
+    def on_call(frame, event, arg):
+        return on_line if frame.f_code.co_filename == STUDENT_FILE else None
+
+    real_stdout = sys.stdout
+    try:
+        compiled = compile(code, STUDENT_FILE, "exec")
+    except SyntaxError as exc:
+        return {"steps": [], "error": _describe_error(exc, code)}
+    try:
+        sys.stdout = out
+        sys.settrace(on_call)
+        exec(compiled, namespace)
+        sys.settrace(None)
+        snapshot()
+    except TooManySteps:
+        steps[-1]["error"] = {
+            "type": "TooManySteps",
+            "message": f"Program ma więcej niż {MAX_STEPS} kroków, pokazuję pierwsze.",
+            "line": None,
+            "line_text": None,
+            "hint": None,
+        }
+    except BaseException as exc:  # noqa: BLE001 - student code may raise anything
+        sys.settrace(None)
+        if isinstance(exc, KeyboardInterrupt):
+            raise
+        snapshot(None if isinstance(exc, SystemExit) else _describe_error(exc, code))
+    finally:
+        sys.settrace(None)
+        sys.stdout = real_stdout
+    return {"steps": steps, "error": steps[-1]["error"] if steps else None}

@@ -1,7 +1,7 @@
 import { url } from '../../url';
-import { TimedOut, type CheckResult, type PredictResult, type RunResult, type Runner } from '../types';
+import { TimedOut, type CheckResult, type PredictResult, type RunResult, type Runner, type TraceResult } from '../types';
 
-const TIME_LIMIT_MS = { run: 5000, check: 15000, predict: 5000 };
+const TIME_LIMIT_MS = { run: 5000, check: 15000, predict: 5000, trace: 5000 };
 
 let worker: Worker | null = null;
 let booting: Promise<void> | null = null;
@@ -58,4 +58,5 @@ export const pythonRunner: Runner = {
   run: (code, stdin) => send<RunResult>('run', { code, stdin }),
   check: (code, tests) => send<CheckResult>('check', { code, tests }),
   predict: (code, guess) => send<PredictResult>('predict', { code, stdin: guess }),
+  trace: (code, stdin) => send<TraceResult>('trace', { code, stdin }),
 };

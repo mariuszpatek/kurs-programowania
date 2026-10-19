@@ -4,7 +4,7 @@
 
 const PYODIDE = 'https://cdn.jsdelivr.net/npm/pyodide@314.0.7/';
 
-type Job = { id: number; kind: 'run' | 'check' | 'predict'; code: string; stdin?: string; tests?: string };
+type Job = { id: number; kind: 'run' | 'check' | 'predict' | 'trace'; code: string; stdin?: string; tests?: string };
 
 let ready: Promise<any> | null = null;
 
@@ -21,6 +21,7 @@ const EXPRESSIONS = {
   run: 'json.dumps(checker.run(_code, _stdin).to_dict())',
   check: 'json.dumps(checker.check(_code, _tests))',
   predict: 'json.dumps(checker.compare_prediction(_code, _stdin))',
+  trace: 'json.dumps(checker.trace(_code, _stdin))',
 };
 
 self.onmessage = async (e: MessageEvent) => {

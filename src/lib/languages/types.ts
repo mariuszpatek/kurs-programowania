@@ -7,6 +7,15 @@ export type CheckResult = { passed: boolean; tests: TestResult[]; run: RunResult
 export type PredictLine = { student: string | null; actual: string | null; ok: boolean };
 export type PredictResult = { passed: boolean; lines: PredictLine[]; error: CodeError | null };
 
+/** One step of a "step by step" view: the state right after `line` ran (null: before the start). */
+export type TraceStep = {
+  line: number | null;
+  variables: { name: string; type: string; value: string }[];
+  output: string;
+  error: CodeError | null;
+};
+export type TraceResult = { steps: TraceStep[]; error: CodeError | null };
+
 export class TimedOut extends Error {}
 
 /** Executes and checks student code in the browser. */
@@ -16,6 +25,8 @@ export type Runner = {
   run(code: string, stdin: string): Promise<RunResult>;
   check(code: string, tests: string): Promise<CheckResult>;
   predict(code: string, guess: string): Promise<PredictResult>;
+  /** Records the program line by line for the "step by step" view in lessons. */
+  trace?(code: string, stdin: string): Promise<TraceResult>;
 };
 
 /** Everything the site needs to know about one programming language. */

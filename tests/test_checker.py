@@ -88,5 +88,30 @@ class Predict(unittest.TestCase):
         self.assertFalse(checker.compare_prediction(self.CODE, "")["passed"])
 
 
+class Trace(unittest.TestCase):
+    def test_state_after_each_line(self):
+        steps = checker.trace('a = 5\na = a + 1\nprint(a)\n')["steps"]
+        self.assertEqual([s["line"] for s in steps], [None, 1, 2, 3])
+        self.assertEqual(steps[0]["variables"], [])
+        self.assertEqual(steps[2]["variables"], [{"name": "a", "type": "int", "value": "6"}])
+        self.assertEqual(steps[3]["output"], "6\n")
+
+    def test_input_and_error(self):
+        result = checker.trace('w = input("? ")\nprint(w + 1)\n', "16\n")
+        self.assertEqual(result["steps"][1]["variables"], [{"name": "w", "type": "str", "value": "'16'"}])
+        self.assertEqual(result["steps"][-1]["line"], 2)
+        self.assertEqual(result["error"]["type"], "TypeError")
+
+    def test_syntax_error_has_no_steps(self):
+        result = checker.trace('print("a)')
+        self.assertEqual(result["steps"], [])
+        self.assertEqual(result["error"]["type"], "SyntaxError")
+
+    def test_endless_loop_is_cut(self):
+        result = checker.trace("while True:\n    x = 1\n")
+        self.assertEqual(len(result["steps"]), checker.MAX_STEPS + 1)
+        self.assertEqual(result["error"]["type"], "TooManySteps")
+
+
 if __name__ == "__main__":
     unittest.main()
