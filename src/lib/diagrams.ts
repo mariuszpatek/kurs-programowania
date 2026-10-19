@@ -7,6 +7,7 @@
 // Step by step: <svg data-steps="3">. On any element:
 //   data-step="2"       appears at step 2 and stays
 //   data-only="2"       visible at step 2 only
+//   data-until="2"      visible up to step 2, then gone (with data-step: visible from … until …)
 //   data-from="-40,90"  flies in from 40 left and 90 down (SVG units) when it appears
 //   data-delay="120"    waits 120 ms before moving (a cascade, e.g. candies one after another)
 // <desc data-step="2"> is the caption under the drawing at step 2.
@@ -19,7 +20,7 @@ function mountSteps(figure: HTMLElement, svg: SVGSVGElement) {
   caption.setAttribute('aria-live', 'polite');
   figure.tabIndex = -1;
 
-  const moving = [...svg.querySelectorAll<SVGElement>('[data-step]:not(desc), [data-only]')];
+  const moving = [...svg.querySelectorAll<SVGElement>('[data-step]:not(desc), [data-only], [data-until]')];
   for (const node of moving) {
     if (node.dataset.delay) node.style.transitionDelay = `${node.dataset.delay}ms`;
   }
@@ -32,7 +33,10 @@ function mountSteps(figure: HTMLElement, svg: SVGSVGElement) {
     at = Math.max(0, Math.min(total - 1, to));
     const step = at + 1;
     for (const node of moving) {
-      const hidden = node.dataset.only ? Number(node.dataset.only) !== step : Number(node.dataset.step) > step;
+      const { only, until } = node.dataset;
+      const hidden = only
+        ? Number(only) !== step
+        : Number(node.dataset.step ?? 1) > step || (until !== undefined && step > Number(until));
       node.classList.toggle('step-hidden', hidden);
       if (node.dataset.from) {
         const [dx, dy] = node.dataset.from.split(',').map(Number);

@@ -10,6 +10,10 @@
 //   ```python krok 16 Ola  words after "krok" are the answers for input()
 // A code block directly followed by an output/error block is shown as one "code → result" card.
 //
+// Links are marked by where they lead, with no extra syntax: a paragraph with a video link
+// (YouTube, Vimeo) becomes a "Do obejrzenia" card so it does not get lost, and a link to
+// documentation gets a small book icon.
+//
 // Callouts use GitHub's alert syntax:
 //   > [!WARNING]              > [!TIP]                  > [!NOTE]
 //   > Zaznacz „Add to PATH”.  > Skrót: Ctrl+Enter.      > Na stronie input() czyta z pola.
@@ -45,8 +49,20 @@ const CALLOUTS: Record<string, string> = {
   CAUTION: 'Uwaga',
 };
 
+const VIDEO = /^https?:\/\/(www\.)?(youtube\.com\/watch|youtu\.be\/|vimeo\.com\/)/;
+const DOCS = /^https?:\/\/(docs\.python\.org|developer\.mozilla\.org|learn\.microsoft\.com)\//;
+
+type InlineToken = { type: string; href?: string; tokens?: InlineToken[] };
+const hasVideo = (tokens: InlineToken[] = []): boolean =>
+  tokens.some((t) => (t.type === 'link' && VIDEO.test(t.href ?? '')) || hasVideo(t.tokens));
+
 const marked = new Marked({
   renderer: {
+    paragraph({ tokens }) {
+      const html = this.parser.parseInline(tokens);
+      if (!hasVideo(tokens as InlineToken[])) return `<p>${html}</p>\n`;
+      return `<aside class="video-card"><span class="video-play" aria-hidden="true"></span><div><p class="callout-title">Do obejrzenia</p><p>${html}</p></div></aside>\n`;
+    },
     blockquote({ tokens }) {
       const html = this.parser.parse(tokens);
       const match = html.match(/^<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/);
@@ -62,7 +78,8 @@ const marked = new Marked({
     link({ href, tokens }) {
       const text = this.parser.parseInline(tokens);
       const external = /^https?:\/\//.test(href);
-      return `<a href="${escapeHtml(href)}"${external ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`;
+      const kind = VIDEO.test(href) ? ' class="video-link"' : DOCS.test(href) ? ' class="doc-link"' : '';
+      return `<a href="${escapeHtml(href)}"${kind}${external ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`;
     },
   },
 });

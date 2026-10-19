@@ -88,6 +88,7 @@ function variablesView(current: TraceStep, previous: TraceStep | undefined): HTM
   const changed = new Map(changes(previous, current).map((c) => [c.name, c.before === null ? 'new' : 'changed']));
   return current.variables.map((v) => {
     const row = el('div', `stepper-var type-${['str', 'int', 'float', 'bool'].includes(v.type) ? v.type : 'other'} ${changed.get(v.name) ?? ''}`);
+    row.dataset.name = v.name;
     row.append(el('span', 'var-name', v.name), el('span', 'var-value', v.value), el('span', 'var-type', v.type));
     return row;
   });
@@ -96,6 +97,43 @@ function variablesView(current: TraceStep, previous: TraceStep | undefined): HTM
 /** The line being computed: plain text with the newest value marked. */
 function partHtml(part: TracePart): string {
   return `${escapeHtml(part.text.slice(0, part.from))}<mark>${escapeHtml(part.text.slice(part.from, part.to))}</mark>${escapeHtml(part.text.slice(part.to))}`;
+}
+
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * The value written by a line flies from the end of that line into its variable's box,
+ * so it is clear where the value in "Zmienne" came from. Only when moving forward.
+ */
+function flyValues(root: HTMLElement, from: HTMLElement, vars: HTMLElement, flying: Change[]) {
+  if (reducedMotion() || !flying.length) return;
+  const range = document.createRange();
+  range.selectNodeContents(from);
+  const start = range.getBoundingClientRect();
+  const base = root.getBoundingClientRect();
+  flying.forEach((change, n) => {
+    const target = vars.querySelector<HTMLElement>(`[data-name="${CSS.escape(change.name)}"] .var-value`);
+    if (!target) return;
+    const end = target.getBoundingClientRect();
+    const chip = el('span', `stepper-fly ${target.parentElement!.className.match(/type-\w+/)?.[0] ?? ''}`, change.value);
+    root.append(chip);
+    const sx = start.right - base.left - chip.offsetWidth;
+    const sy = start.top - base.top;
+    target.style.visibility = 'hidden';
+    chip
+      .animate(
+        [
+          { transform: `translate(${sx}px, ${sy}px)`, opacity: 0.6 },
+          { transform: `translate(${end.left - base.left}px, ${end.top - base.top}px)`, opacity: 1 },
+        ],
+        { duration: 650, delay: n * 120, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' },
+      )
+      .finished.catch(() => {})
+      .finally(() => {
+        target.style.visibility = '';
+        chip.remove();
+      });
+  });
 }
 
 /** Builds the player under `anchor` and records the program. */
@@ -152,7 +190,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
     li.querySelector('.line-tag')!.textContent = tag;
   }
 
-  function render() {
+  function render(forward = false) {
     const { step: i, part } = positions[at];
     const step = steps[i];
     lineItems.forEach((_, n) => setLine(n, '', ''));
@@ -174,14 +212,19 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
       output.textContent = step.output || 'Na razie nic.';
       output.classList.toggle('empty', !step.output);
       text.innerHTML = lineCaption(steps, i);
+      if (forward && step.line !== null && !step.error) {
+        flyValues(root, lineItems[step.line - 1].querySelector('code')!, vars, changes(steps[i - 1], step));
+      }
     }
     controls.update(at, positions.length);
   }
 
   function go(to: number) {
     if (!positions.length) return;
-    at = Math.max(0, Math.min(positions.length - 1, to));
-    render();
+    const next = Math.max(0, Math.min(positions.length - 1, to));
+    const forward = next === at + 1;
+    at = next;
+    render(forward);
   }
   detailBox.addEventListener('change', () => {
     saveDetailed(detailBox.checked);
