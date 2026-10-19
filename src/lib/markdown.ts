@@ -17,6 +17,7 @@ import { Marked } from 'marked';
 import { languageByFence } from './languages';
 import { escapeHtml } from './languages/highlight';
 import { mountStepper } from './stepper';
+import { mountDiagrams } from './diagrams';
 
 const CONSOLE_FENCES: Record<string, { className: string; caption: string }> = {
   output: { className: 'output', caption: 'Wynik' },
@@ -75,8 +76,10 @@ export function renderUntrustedMarkdown(md: string): string {
   return marked.parse(escapeHtml(md), { async: false });
 }
 
-/** Adds Copy buttons and joins code with the output block right after it. Call after inserting rendered HTML. */
+/** Adds Copy buttons, joins code with the output block right after it and adds step controls to drawings.
+ * Call after inserting rendered HTML. */
 export function enhanceCodeBlocks(root: HTMLElement) {
+  mountDiagrams(root);
   for (const figure of root.querySelectorAll<HTMLElement>('figure.code-block.copyable')) {
     const next = figure.nextElementSibling;
     if (next?.matches('figure.code-block.output')) {

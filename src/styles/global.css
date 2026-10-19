@@ -699,9 +699,158 @@ pre code {
   .stepper-code mark {
     animation: none;
   }
-  .stepper-code li {
+  .stepper-code li,
+  .diagram [data-step],
+  .diagram [data-only] {
     transition: none;
   }
+}
+
+/* drawings in lessons (src/lib/diagrams.ts). They use these classes instead of colours,
+   so every drawing matches the site and the dark theme: text green, numbers orange, like in code. */
+.diagram {
+  margin: 8px 0 28px;
+  padding: 20px 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.diagram svg {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+  font-family: var(--sans);
+}
+
+.diagram > figcaption {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.diagram-caption {
+  min-height: 2.8em;
+  margin: 10px auto 8px;
+  max-width: 52ch;
+  text-align: center;
+  font-size: 15px;
+}
+
+.diagram .stepper-controls {
+  justify-content: center;
+}
+
+.diagram text {
+  fill: var(--text);
+  font-size: 15px;
+}
+
+.diagram .mono {
+  font-family: var(--mono);
+}
+
+.diagram .label {
+  fill: var(--text-2);
+  font-size: 13px;
+}
+
+.diagram .tag {
+  fill: var(--text-3);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.diagram .box {
+  fill: var(--surface-2);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.diagram .str {
+  fill: color-mix(in srgb, var(--code-string) 12%, var(--surface));
+  stroke: var(--code-string);
+  stroke-width: 1.5;
+}
+
+.diagram .num {
+  fill: color-mix(in srgb, var(--code-number) 12%, var(--surface));
+  stroke: var(--code-number);
+  stroke-width: 1.5;
+}
+
+.diagram .bool {
+  fill: color-mix(in srgb, var(--code-keyword) 12%, var(--surface));
+  stroke: var(--code-keyword);
+  stroke-width: 1.5;
+}
+
+.diagram .accent-box {
+  fill: var(--accent-bg);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.diagram .console {
+  fill: var(--console);
+}
+
+.diagram text.str-text {
+  fill: var(--code-string);
+  font-family: var(--mono);
+}
+
+.diagram text.num-text {
+  fill: var(--code-number);
+  font-family: var(--mono);
+}
+
+.diagram text.bool-text {
+  fill: var(--code-keyword);
+  font-family: var(--mono);
+}
+
+.diagram text.accent {
+  fill: var(--accent);
+}
+
+.diagram text.console-text {
+  fill: var(--console-text);
+  font-family: var(--mono);
+}
+
+.diagram .arrow {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 2;
+}
+
+.diagram .arrow-head {
+  fill: var(--text-3);
+}
+
+.diagram .ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.diagram .struck {
+  fill: var(--text-3);
+  text-decoration: line-through;
+}
+
+.diagram [data-step],
+.diagram [data-only] {
+  transition: opacity 0.35s ease;
+}
+
+.diagram .step-hidden {
+  opacity: 0;
 }
 
 /* callouts: > [!NOTE] / [!TIP] / [!WARNING] in lesson Markdown */

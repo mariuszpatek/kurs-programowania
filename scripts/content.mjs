@@ -5,6 +5,7 @@
 //   <course>/tutor-prompt.md          AI tutor prompt; {{topics}} = topics of lessons so far
 //   <course>/lessons/01.md            frontmatter: number, title, topics
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
+//   <course>/lessons/img/name.svg     drawings; ![caption](img/name.svg) in a lesson is inlined (src/lib/diagrams.ts)
 //                                     "## @slug Title" sections show up at <!-- nauczyciel: slug --> in the lesson
 //   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?, hints?
 //                                     hints: list of graded hints, the student opens them after failed checks
@@ -48,6 +49,18 @@ export function frontmatter(text, file) {
   return { meta: parseYaml(match[1]) ?? {}, body: match[2].trim() };
 }
 
+/** ![caption](img/name.svg) becomes the drawing itself, so it needs no hosting and follows the theme. */
+function inlineDrawings(body, lessonsDir, file) {
+  return body.replace(/^!\[([^\]]*)\]\((img\/[\w-]+\.svg)\)\s*$/gm, (_, caption, path) => {
+    const svg = readIfExists(join(lessonsDir, path));
+    if (!svg) throw new Error(`${file}: no drawing ${path}`);
+    const alt = caption.replace(/"/g, '&quot;');
+    // an HTML block in Markdown ends at the first empty line, so the drawing must have none
+    const drawing = svg.replace(/<\?xml[^>]*>/, '').trim().replace(/\n\s*\n/g, '\n');
+    return `<figure class="diagram" data-alt="${alt}">\n${drawing}\n<figcaption>${caption}</figcaption>\n</figure>`;
+  });
+}
+
 export function loadCourse(dir) {
   const course = parseYaml(read(join(dir, 'course.yaml')));
   for (const field of ['slug', 'title', 'language']) {
@@ -59,7 +72,7 @@ export function loadCourse(dir) {
     .filter((f) => f.endsWith('.md') && !f.endsWith('.teacher.md'))
     .map((f) => {
       const { meta, body } = frontmatter(read(join(dir, 'lessons', f)), f);
-      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: body };
+      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: inlineDrawings(body, join(dir, 'lessons'), f) };
     });
 
   // lessons/01.teacher.md belongs to the lesson whose file is lessons/01.md

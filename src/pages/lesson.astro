@@ -65,6 +65,7 @@ import Layout from '../layouts/Layout.astro';
 <script>
   import { requireAccess, courseBySlug, lessons, tasks, teacherNotes, setLessonPublished, coursePath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
   import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
+  import { drawingsAsText } from '../lib/diagrams';
   import { splitTeacherNotes, mountInlineNotes, notesAsMarkdown, stripTeacherMarkers } from '../lib/teacher-notes';
   import { splitIntoSections, mountOutline, readingMinutes } from '../lib/lesson-outline';
   import { languageById } from '../lib/languages';
@@ -89,7 +90,7 @@ import Layout from '../layouts/Layout.astro';
     return [
       `# ${course.title}: lekcja ${lesson.number}. ${lesson.title}`,
       `Tematy: ${lesson.topics.join(', ')}`,
-      stripTeacherMarkers(lesson.body_md),
+      drawingsAsText(stripTeacherMarkers(lesson.body_md)),
       ...lessonTasks.map((t) =>
         [
           `## Zadanie ${t.number}: ${t.title}`,
