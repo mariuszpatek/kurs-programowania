@@ -70,12 +70,10 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   const codeList = el('ol', 'stepper-code');
   const lineItems = lines.map((line, n) => {
     const li = el('li');
-    li.innerHTML = `<span class="ln">${n + 1}</span><code>${language.highlight(line) || ' '}</code>`;
+    li.innerHTML = `<span class="ln">${n + 1}</span><code>${language.highlight(line) || ' '}</code><span class="line-tag"></span>`;
     codeList.append(li);
     return li;
   });
-  const legend = el('p', 'stepper-legend');
-  legend.innerHTML = '<span class="mark-done"></span> właśnie wykonana <span class="mark-next"></span> następna';
 
   const vars = el('div', 'stepper-vars');
   const output = el('pre', 'stepper-output');
@@ -83,7 +81,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   state.append(el('p', 'eyebrow', 'Zmienne'), vars, el('p', 'eyebrow', 'Na ekranie'), output);
 
   const left = el('div', 'stepper-left');
-  left.append(codeList, legend);
+  left.append(codeList);
   const body = el('div', 'stepper-body');
   body.append(left, state);
 
@@ -105,10 +103,13 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   function render() {
     const step = steps[i];
     const following = steps[i + 1];
+    // a label right on the line says which one Python just ran and which one comes next
     lineItems.forEach((li, n) => {
-      li.classList.toggle('done', step.line === n + 1);
-      li.classList.toggle('next', following?.line === n + 1 && !step.error);
-      li.classList.toggle('failed', step.line === n + 1 && Boolean(step.error) && step.error!.type !== 'TooManySteps');
+      const failed = step.line === n + 1 && Boolean(step.error) && step.error!.type !== 'TooManySteps';
+      const done = step.line === n + 1 && !failed;
+      const upcoming = following?.line === n + 1 && !done && !step.error;
+      li.className = failed ? 'failed' : done ? 'done' : upcoming ? 'next' : '';
+      li.querySelector('.line-tag')!.textContent = failed ? '✗ błąd' : done ? '✓ wykonana' : upcoming ? '▶ następna' : '';
     });
     vars.replaceChildren(...variablesView(steps, i));
     output.textContent = step.output || 'Na razie nic.';

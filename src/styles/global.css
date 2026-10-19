@@ -387,13 +387,26 @@ pre code {
 /* "Krok po kroku" under a ```python krok example (src/lib/stepper.ts) */
 .code-block .step {
   height: 24px;
-  padding: 0 8px;
+  padding: 0 10px;
   margin-left: auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 999px;
+  background: var(--accent-bg);
   font-family: var(--sans);
   font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
   color: var(--accent);
+}
+
+.code-block .step::before {
+  content: '▶ ';
+  font-size: 10px;
+}
+
+.code-block .step:hover {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
 }
 
 .code-block .step + .copy {
@@ -448,11 +461,15 @@ pre code {
 }
 
 .stepper-code code {
+  flex: 1;
+  min-width: 0;
   background: none;
   border: 0;
   padding: 0;
   font-size: inherit;
-  white-space: pre;
+  /* long lines wrap, so the label at the end of the line stays visible */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .stepper-code li.done {
@@ -469,27 +486,26 @@ pre code {
   border-left-color: var(--bad);
 }
 
-.stepper-legend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 8px 0 0;
-  font-size: 12.5px;
+.stepper-code .line-tag {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 12px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stepper-code li.done .line-tag {
+  color: var(--accent);
+}
+
+.stepper-code li.next .line-tag {
   color: var(--text-2);
 }
 
-.stepper-legend span {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-left: 3px solid var(--accent);
-  background: var(--accent-bg);
-}
-
-.stepper-legend .mark-next {
-  margin-left: 10px;
-  border-left: 3px dashed var(--text-3);
-  background: none;
+.stepper-code li.failed .line-tag {
+  color: var(--bad);
 }
 
 .stepper-state .eyebrow {
