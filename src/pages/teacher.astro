@@ -43,7 +43,7 @@ import Layout from '../layouts/Layout.astro';
 
 <script>
   import { requireAccess, setPreviewAsStudent, lessons, tasks, teacherNotes, setLessonPublished, lessonPath, type Course, type Enrollment, type Lesson, type Task } from '../lib/content';
-  import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
+  import { renderMarkdown, enhanceContent } from '../lib/markdown';
   import { splitTeacherNotes, notesAsMarkdown } from '../lib/teacher-notes';
   import { supabase } from '../lib/supabase';
 
@@ -276,7 +276,7 @@ import Layout from '../layouts/Layout.astro';
       const body = el('div', '', 'prose');
       const { general, inline } = splitTeacherNotes(notes);
       body.innerHTML = renderMarkdown(notesAsMarkdown(general, inline));
-      enhanceCodeBlocks(body);
+      enhanceContent(body);
       details.append(el('summary', 'Notatki dla nauczyciela'), body);
       item.append(details);
     }

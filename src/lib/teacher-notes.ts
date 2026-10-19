@@ -7,7 +7,7 @@
 //
 // The marker is an HTML comment, so students (who never get the notes, RLS) see nothing.
 // Notes without a marker in the lesson stay in the box at the top of the page.
-import { renderMarkdown, enhanceCodeBlocks } from './markdown';
+import { renderMarkdown, enhanceContent } from './markdown';
 
 export type InlineNote = { slug: string; title: string; body: string };
 
@@ -52,7 +52,7 @@ function noteBox(note: InlineNote): HTMLDetailsElement {
   const body = document.createElement('div');
   body.className = 'prose teacher-notes-body';
   body.innerHTML = renderMarkdown(note.body);
-  enhanceCodeBlocks(body);
+  enhanceContent(body);
   details.append(summary, body);
   return details;
 }

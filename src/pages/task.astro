@@ -40,7 +40,7 @@ import Assistant from '../components/Assistant.astro';
 
 <script>
   import { requireAccess, courseBySlug, lessons, tasks, taskNote, lessonPath, lessonTasksPath, taskPath, topicsUpTo } from '../lib/content';
-  import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
+  import { renderMarkdown, enhanceContent } from '../lib/markdown';
   import { mountWorkspace } from '../lib/workspace';
   import { mountPredict } from '../lib/predict';
   import { mountAssistant } from '../lib/assistant';
@@ -75,13 +75,13 @@ import { param } from '../lib/url';
     $('task-title').textContent = task.title;
     if (task.draft) $('task-title').append(Object.assign(document.createElement('span'), { className: 'draft-badge', textContent: 'szkic' }));
     $('task-body').innerHTML = renderMarkdown(task.body_md);
-    enhanceCodeBlocks($('task-body'));
+    enhanceContent($('task-body'));
     mountHints($('task-hints'), task, access.isTeacher);
     if (access.isTeacher) {
       const note = await taskNote(course.id, task.slug);
       if (note) {
         $('task-notes-body').innerHTML = renderMarkdown(note);
-        enhanceCodeBlocks($('task-notes-body'));
+        enhanceContent($('task-notes-body'));
         $('task-notes').hidden = false;
       }
     }

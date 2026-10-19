@@ -78,7 +78,7 @@ export function renderUntrustedMarkdown(md: string): string {
 
 /** Adds Copy buttons, joins code with the output block right after it and adds step controls to drawings.
  * Call after inserting rendered HTML. */
-export function enhanceCodeBlocks(root: HTMLElement) {
+export function enhanceContent(root: HTMLElement) {
   mountDiagrams(root);
   for (const figure of root.querySelectorAll<HTMLElement>('figure.code-block.copyable')) {
     const next = figure.nextElementSibling;

@@ -6,6 +6,7 @@
 // Words after "krok" are the answers for input(), one per line: ```python krok 16 Ola
 import { escapeHtml } from './languages/highlight';
 import { TimedOut, type Language, type TracePart, type TraceStep } from './languages/types';
+import { stepControls } from './step-controls';
 
 type Change = { name: string; value: string; before: string | null };
 /** One click of "Dalej": a whole line (part null) or one value computed inside it. */
@@ -123,19 +124,14 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
 
   const text = el('p', 'stepper-caption');
   text.setAttribute('aria-live', 'polite');
-  const prev = el('button', 'ghost', '◀ Wstecz');
-  const count = el('span', 'stepper-count');
-  const next = el('button', 'primary', 'Dalej ▶');
-  const restart = el('button', 'ghost', 'Od początku');
   const detail = el('label', 'stepper-detail');
   const detailBox = el('input');
   detailBox.type = 'checkbox';
   detailBox.checked = loadDetailed();
   detail.append(detailBox, ' Pokaż liczenie w linijce');
-  const controls = el('div', 'stepper-controls');
-  controls.append(prev, count, next, restart, detail);
+  const controls = stepControls((to) => go(to), root, [detail]);
 
-  root.append(body, text, controls);
+  root.append(body, text, controls.element);
   anchor.after(root);
 
   let steps: TraceStep[] = [];
@@ -179,19 +175,14 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
       output.classList.toggle('empty', !step.output);
       text.innerHTML = lineCaption(steps, i);
     }
-    count.textContent = `Krok ${at + 1} z ${positions.length}`;
-    prev.disabled = at === 0;
-    next.disabled = at === positions.length - 1;
-    restart.hidden = at === 0;
+    controls.update(at, positions.length);
   }
 
-  const go = (to: number) => {
+  function go(to: number) {
+    if (!positions.length) return;
     at = Math.max(0, Math.min(positions.length - 1, to));
     render();
-  };
-  prev.addEventListener('click', () => go(at - 1));
-  next.addEventListener('click', () => go(at + 1));
-  restart.addEventListener('click', () => go(0));
+  }
   detailBox.addEventListener('change', () => {
     saveDetailed(detailBox.checked);
     if (!steps.length) return;
@@ -199,15 +190,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
     layout();
     go(positions.findIndex((p) => p.step === current && p.part === null));
   });
-  root.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight') go(at + 1);
-    else if (e.key === 'ArrowLeft') go(at - 1);
-    else return;
-    e.preventDefault();
-  });
-
-  for (const b of [prev, next]) b.disabled = true;
-  restart.hidden = true;
+  controls.update(0, 0);
   text.textContent = 'Uruchamiam Pythona… Za pierwszym razem trwa to kilka sekund.';
   language
     .runner!.trace!(source, stdin)

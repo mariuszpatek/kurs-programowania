@@ -15,14 +15,17 @@ Interfejs jest po polsku, kod (TypeScript, Python, SQL) po angielsku.
 
 ## Treść kursów
 
-Treść leży w prywatnym folderze `../korepetycje_python/platforma/` (inny można ustawić w `.env` jako `CONTENT_DIR`). Każdy podfolder to jeden kurs:
+Treść leży w prywatnym folderze `../korepetycje_python/platforma/` (inny można ustawić w `.env` jako `CONTENT_DIR`). Zasady pisania lekcji (nazwy po angielsku, bez spoilerów, jak pisać notatki) są w `platforma/JAK-PISAC.md`. Każdy podfolder to jeden kurs:
 
 ```
 python-podstawy/
   course.yaml                       slug, title, language, level, description
   tutor-prompt.md                   prompt korepetytora AI; {{topics}} = tematy lekcji do bieżącej
-  lessons/01.md                     frontmatter: number, title, topics, draft?
-  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict), starter_code?, predict_code?, draft?
+  lessons/01.md                     frontmatter: number, title, topics
+  lessons/01.teacher.md             notatki tylko dla nauczyciela (plan, pytania, notatki przy fragmentach lekcji)
+  lessons/img/nazwa.svg             rysunki; generator: lessons/img/_rysunki.py
+  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict), in_class?, starter_code?, predict_code?, hints?
+  tasks/01/01-nazwa.teacher.md      rozwiązanie z wyjaśnieniem, tylko dla nauczyciela
   tasks/01/01-nazwa.test.py         testy: funkcje test_*(ctx)
   solutions/01/01-nazwa.py          wzorcowe rozwiązanie (dla predict: .txt z oczekiwanym wynikiem)
   solutions/01/01-nazwa.bad-opis.py typowy błąd ucznia, który testy muszą wyłapać
@@ -56,6 +59,7 @@ Kurs w innym języku (`--language csharp`) działa od razu jako lekcje i zadania
 | Blok | Wygląd |
 |---|---|
 | ```` ```python ```` | kod z kolorowaniem, podpisem języka i przyciskiem „Kopiuj” |
+| ```` ```python krok ```` | to samo plus przycisk „Krok po kroku” (słowa po `krok` to odpowiedzi dla `input()`, np. ```` ```python krok 16 ````) |
 | ```` ```output ```` | wynik programu w stylu konsoli |
 | ```` ```error ```` | komunikat błędu w stylu konsoli, na czerwono |
 | ```` ``` ```` | zwykły tekst z przyciskiem „Kopiuj” |
@@ -71,9 +75,23 @@ Ramki (składnia jak na GitHubie):
 
 `[!NOTE]` to „Dobrze wiedzieć”, `[!TIP]` to „Wskazówka”, `[!IMPORTANT]` to „Ważne”, a `[!WARNING]` to „Uwaga”. Każdy nagłówek `##` staje się numerowaną sekcją i pozycją w spisie treści, a `###` to podtytuł wewnątrz sekcji.
 
+### Krok po kroku (`src/lib/stepper.ts`)
+
+Przykład ```` ```python krok ```` uruchamia się w przeglądarce (`checker.trace`): po każdej linijce widać zmienne z typami i to, co jest na ekranie. Z „Pokaż liczenie w linijce” każda linijka rozkłada się na wartości, jak „step into” w Thonny (`age = int('16')` → `age = 16`). Przyciski Wstecz / Dalej / Odtwórz są wspólne z rysunkami (`src/lib/step-controls.ts`).
+
+### Rysunki (`src/lib/diagrams.ts`)
+
+Plik `lessons/img/nazwa.svg`, w lekcji w osobnej linijce `![Podpis](img/nazwa.svg)`. `sync-content` wkleja rysunek do treści lekcji, więc nie trzeba go nigdzie hostować i jest tak samo prywatny jak lekcja. Rysunek używa tylko klas z `src/styles/lesson-widgets.css` (`box`, `str`, `num`, `bool`, `label`, `arrow` …), dzięki czemu pasuje do strony i do ciemnego motywu; własne kolory, `id` i skrypty są odrzucane przy wgrywaniu.
+
+Rysunek krokowy: `<svg data-steps="3">`, na elementach `data-step="2"` (pojawia się w kroku 2), `data-only="2"` (tylko w kroku 2), `data-from="dx,dy"` (przylatuje z przesunięcia), `data-delay="ms"` (kaskada), a `<desc data-step="2">` to podpis kroku. Najprościej: funkcja w `lessons/img/_rysunki.py` z pomocnikami z `_svg.py`.
+
+### Notatki dla nauczyciela
+
+`lessons/NN.teacher.md` pokazuje się nauczycielowi nad lekcją. Sekcja `## @slug Tytuł` trafia w miejsce znacznika `<!-- nauczyciel: slug -->` w lekcji jako zwijane pole. `tasks/NN/nazwa.teacher.md` to pole „Rozwiązanie i wyjaśnienie” pod zadaniem. Uczeń nie dostaje żadnej z nich (osobne tabele z RLS). Podpowiedzi dla ucznia (`hints:` w zadaniu) odblokowują się po nieudanych sprawdzeniach.
+
 ### Walidacja
 
-Wzorcowe rozwiązanie musi przejść wszystkie testy, a każde `bad-*` oblać przynajmniej jeden. Jeśli coś nie przejdzie, nic nie zostanie wgrane. Zadań usuniętych z folderu skrypt nie kasuje w bazie (skasowałby próby uczniów), tylko je wypisuje.
+Wzorcowe rozwiązanie musi przejść wszystkie testy, a każde `bad-*` oblać przynajmniej jeden. Każdy przykład ```` ```python ```` w lekcji musi się kompilować, a ```` ```python krok ```` uruchomić (błąd w trakcie wolno, lekcje pokazują błędy celowo). Notatka `@slug` musi mieć znacznik w lekcji i odwrotnie, a rysunek nie może mieć własnych kolorów. Jeśli coś nie przejdzie, nic nie zostanie wgrane. Ostrzeżenia (wgranie idzie dalej): przykład w lekcji powtarza dwie linijki rozwiązania zadania (spoiler), rysunek nie jest użyty w żadnej lekcji. Zadań usuniętych z folderu skrypt nie kasuje w bazie (skasowałby próby uczniów), tylko je wypisuje.
 
 ### API testów (`public/py/checker.py`)
 

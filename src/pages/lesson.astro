@@ -64,7 +64,7 @@ import Layout from '../layouts/Layout.astro';
 
 <script>
   import { requireAccess, courseBySlug, lessons, tasks, teacherNotes, setLessonPublished, coursePath, tutorPrompt, type Course, type Lesson, type Task } from '../lib/content';
-  import { renderMarkdown, enhanceCodeBlocks } from '../lib/markdown';
+  import { renderMarkdown, enhanceContent } from '../lib/markdown';
   import { drawingsAsText } from '../lib/diagrams';
   import { splitTeacherNotes, mountInlineNotes, notesAsMarkdown, stripTeacherMarkers } from '../lib/teacher-notes';
   import { splitIntoSections, mountOutline, readingMinutes } from '../lib/lesson-outline';
@@ -161,7 +161,7 @@ import Layout from '../layouts/Layout.astro';
       });
     }
     $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
-    enhanceCodeBlocks($('lesson-body'));
+    enhanceContent($('lesson-body'));
     const minutes = readingMinutes($('lesson-body'));
 
     if (access.isTeacher) {
@@ -170,7 +170,7 @@ import Layout from '../layouts/Layout.astro';
       const top = notesAsMarkdown(general, mountInlineNotes($('lesson-body'), inline));
       if (top) {
         $('teacher-notes-body').innerHTML = renderMarkdown(top);
-        enhanceCodeBlocks($('teacher-notes-body'));
+        enhanceContent($('teacher-notes-body'));
         $('teacher-notes').hidden = false;
       }
     }
@@ -182,7 +182,7 @@ import Layout from '../layouts/Layout.astro';
 
     if (course.tutor_prompt) {
       $('tutor-prompt').innerHTML = renderMarkdown(fence('', tutorPrompt(course, courseLessons, lesson.number)));
-      enhanceCodeBlocks($('tutor-prompt'));
+      enhanceContent($('tutor-prompt'));
       $('lesson-tutor').hidden = false;
     }
 

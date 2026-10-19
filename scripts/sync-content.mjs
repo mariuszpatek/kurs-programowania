@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import { contentRoot, courseDirs, loadCourse } from './content.mjs';
 
-/** Per-language validator scripts: read tasks as JSON on stdin, exit 1 on problems. */
+/** Per-language validator scripts: read { tasks, lessons } as JSON on stdin, exit 1 on problems. */
 const VALIDATORS = {
   python: 'validate_python.py',
 };
@@ -32,14 +32,14 @@ if (!dirs.length) {
   process.exit(1);
 }
 
-function validate(language, tasks) {
+function validate(language, tasks, lessons) {
   const script = VALIDATORS[language];
   if (!script) {
     console.warn(`  ! brak walidatora dla języka „${language}”, testy nie zostały sprawdzone`);
     return true;
   }
   const python = process.env.PYTHON ?? (process.platform === 'win32' ? 'py' : 'python3');
-  const result = spawnSync(python, [join(import.meta.dirname, script)], { input: JSON.stringify(tasks), encoding: 'utf-8' });
+  const result = spawnSync(python, [join(import.meta.dirname, script)], { input: JSON.stringify({ tasks, lessons }), encoding: 'utf-8' });
   if (result.stdout.trim()) console.log(result.stdout.trimEnd().replace(/^/gm, '  '));
   process.stderr.write(result.stderr);
   return result.status === 0;
@@ -64,11 +64,19 @@ function checkNoteMarkers(lessons, teacherNotes) {
   return ok;
 }
 
-const courses = dirs.map(loadCourse);
+let courses;
+try {
+  courses = dirs.map(loadCourse);
+} catch (err) {
+  // a broken file: say which one and why, without a stack trace
+  console.error(`✗ ${err.message}\nWalidacja nie przeszła, nic nie zostało wgrane.`);
+  process.exit(1);
+}
 let ok = true;
-for (const { course, lessons, tasks, teacherNotes } of courses) {
+for (const { course, lessons, tasks, teacherNotes, unusedDrawings } of courses) {
   console.log(`${course.title} (${course.slug}): ${lessons.length} lekcji, ${tasks.length} zadań`);
-  ok = validate(course.language, tasks) && ok;
+  if (unusedDrawings.length) console.warn(`  ! rysunki, których nie ma w żadnej lekcji: ${unusedDrawings.join(', ')}`);
+  ok = validate(course.language, tasks, lessons) && ok;
   ok = checkNoteMarkers(lessons, teacherNotes) && ok;
 }
 if (!ok) {

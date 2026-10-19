@@ -20,6 +20,8 @@ const { lessons } = loadCourse(dir);
 const number = Math.max(0, ...lessons.map((l) => l.number)) + 1;
 const n = pad(number);
 
+// Every feature of a lesson in one place, so the syntax does not have to be remembered.
+// The full guide for writing lessons: korepetycje_python/platforma/JAK-PISAC.md
 const files = {
   [`lessons/${n}.md`]: `---
 number: ${number}
@@ -31,15 +33,20 @@ topics:
 
 ## Pierwszy temat
 
-Krótkie wyjaśnienie, potem przykład. Kod i jego wynik pod spodem pokażą się jako jedna karta:
+Krótkie wyjaśnienie, potem przykład. Nazwy w kodzie po angielsku, teksty dla użytkownika po polsku.
+Kod i jego wynik pod spodem pokażą się jako jedna karta, a "krok" dodaje przycisk „Krok po kroku”
+(słowa po "krok" to odpowiedzi dla input(), np. \`python krok 16\`):
 
-\`\`\`python
-print("Cześć!")
+\`\`\`python krok
+name = "Ola"
+print("Cześć,", name)
 \`\`\`
 
 \`\`\`output
-Cześć!
+Cześć, Ola
 \`\`\`
+
+<!-- nauczyciel: przyklad -->
 
 Komunikat błędu:
 
@@ -47,16 +54,38 @@ Komunikat błędu:
 NameError: name 'Print' is not defined
 \`\`\`
 
+<!-- Rysunek: plik lessons/img/nazwa.svg (generator: lessons/img/_rysunki.py), potem w osobnej linijce:
+![Podpis pod rysunkiem](img/nazwa.svg) -->
+
 ## Dla ciekawych
 
 Coś, czego nie było na lekcji, a uczeń może odkryć sam.
+`,
+  [`lessons/${n}.teacher.md`]: `## Plan lekcji (ok. 60 min)
+
+| Czas | Co | Jak |
+|---|---|---|
+| 0–10 | Omówienie zadań domowych z lekcji ${number - 1} | w panelu: które zadania i ile prób |
+| 10–50 | Pierwszy temat | **zadanie na lekcji 1** |
+| 50–60 | Zadania domowe | |
+
+## @przyklad Co powiedzieć przy pierwszym przykładzie
+
+Ta sekcja pokaże się nauczycielowi w lekcji w miejscu znacznika \`<!-- nauczyciel: przyklad -->\`.
+Pisz pełnymi zdaniami: co zapytać i jaka odpowiedź ma paść.
 `,
   [`tasks/${n}/01-pierwsze-zadanie.md`]: `---
 title: Pierwsze zadanie
 number: 1
 kind: code
+in_class: true
 starter_code: |
   # tu zaczyna uczeń
+hints:
+  - |-
+    Pierwsza podpowiedź: ogólny kierunek, bez kodu.
+  - |-
+    Druga: konkretniej, nadal bez gotowej linijki.
 ---
 
 Treść zadania. Jak ma wyglądać wynik:
@@ -68,6 +97,16 @@ Cześć!
   [`tasks/${n}/01-pierwsze-zadanie.test.py`]: `def test_wynik(ctx):
     """Program wypisuje powitanie"""
     expect_line(ctx, 1, "Cześć!")
+`,
+  [`tasks/${n}/01-pierwsze-zadanie.teacher.md`]: `**Przykładowe rozwiązanie:**
+
+\`\`\`python krok
+print("Cześć!")
+\`\`\`
+
+**Wyjaśnienie:** dlaczego tak.
+
+**Typowe błędy:** co uczeń zrobi źle i co wtedy zobaczy.
 `,
   [`solutions/${n}/01-pierwsze-zadanie.py`]: `print("Cześć!")
 `,
