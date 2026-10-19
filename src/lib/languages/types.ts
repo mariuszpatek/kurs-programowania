@@ -8,11 +8,15 @@ export type PredictLine = { student: string | null; actual: string | null; ok: b
 export type PredictResult = { passed: boolean; lines: PredictLine[]; error: CodeError | null };
 
 /** One step of a "step by step" view: the state right after `line` ran (null: before the start). */
+/** One value computed inside a line: the line with computed parts replaced, and the newest one at [from, to). */
+export type TracePart = { text: string; from: number; to: number; before: string; value: string };
 export type TraceStep = {
   line: number | null;
   variables: { name: string; type: string; value: string }[];
   output: string;
   error: CodeError | null;
+  /** How the line was computed, value by value (Thonny-like "step into"). */
+  parts: TracePart[];
 };
 export type TraceResult = { steps: TraceStep[]; error: CodeError | null };
 

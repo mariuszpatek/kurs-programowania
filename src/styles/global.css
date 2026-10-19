@@ -427,7 +427,7 @@ pre code {
 
 .stepper-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -484,6 +484,47 @@ pre code {
 .stepper-code li.failed {
   background: var(--bad-bg);
   border-left-color: var(--bad);
+}
+
+/* a line being computed value by value ("Pokaż liczenie w linijce") */
+.stepper-code li.computing {
+  background: color-mix(in srgb, var(--code-number) 9%, var(--surface));
+  border-left-color: var(--code-number);
+}
+
+.stepper-code li.computing .line-tag {
+  color: var(--code-number);
+}
+
+.stepper-code mark {
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--code-number) 24%, var(--surface));
+  color: var(--text);
+  font-weight: 600;
+  animation: stepper-pop 0.45s ease-out;
+}
+
+@keyframes stepper-pop {
+  from {
+    background: color-mix(in srgb, var(--code-number) 55%, var(--surface));
+  }
+}
+
+.stepper-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 13.5px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.stepper-detail input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 .stepper-code .line-tag {
@@ -654,7 +695,8 @@ pre code {
 
 @media (prefers-reduced-motion: reduce) {
   .stepper-var.new,
-  .stepper-var.changed {
+  .stepper-var.changed,
+  .stepper-code mark {
     animation: none;
   }
   .stepper-code li {

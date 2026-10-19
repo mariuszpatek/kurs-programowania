@@ -1,11 +1,17 @@
 // "Step by step" under a lesson example. A ```python krok fence gets a button that runs the
 // example once, records the state after every line (checker.trace) and lets the student walk
 // through it: the line just executed, the variables with their types, and what is on the screen.
+// With "Pokaż liczenie w linijce" on, every line is also taken apart like Thonny's "step into":
+// age = int(input(...)) → age = int('16') → age = 16.
 // Words after "krok" are the answers for input(), one per line: ```python krok 16 Ola
 import { escapeHtml } from './languages/highlight';
-import { TimedOut, type Language, type TraceStep } from './languages/types';
+import { TimedOut, type Language, type TracePart, type TraceStep } from './languages/types';
 
 type Change = { name: string; value: string; before: string | null };
+/** One click of "Dalej": a whole line (part null) or one value computed inside it. */
+type Position = { step: number; part: number | null };
+
+const DETAILED_KEY = 'kurs:stepper-detailed';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') => {
   const e = document.createElement(tag);
@@ -16,6 +22,22 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text 
 
 const code = (text: string) => `<code>${escapeHtml(text)}</code>`;
 
+function loadDetailed(): boolean {
+  try {
+    return localStorage.getItem(DETAILED_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function saveDetailed(on: boolean) {
+  try {
+    localStorage.setItem(DETAILED_KEY, on ? '1' : '0');
+  } catch {
+    // private mode: the choice is simply not remembered
+  }
+}
+
 /** What changed between two steps: new variables and new values. */
 function changes(before: TraceStep | undefined, after: TraceStep): Change[] {
   const old = new Map((before?.variables ?? []).map((v) => [v.name, v.value]));
@@ -24,7 +46,7 @@ function changes(before: TraceStep | undefined, after: TraceStep): Change[] {
     .map((v) => ({ name: v.name, value: v.value, before: old.get(v.name) ?? null }));
 }
 
-function caption(steps: TraceStep[], i: number): string {
+function lineCaption(steps: TraceStep[], i: number): string {
   const step = steps[i];
   if (step.line === null) {
     const first = steps[1]?.line;
@@ -49,15 +71,30 @@ function caption(steps: TraceStep[], i: number): string {
   return parts.join(' ');
 }
 
-function variablesView(steps: TraceStep[], i: number): HTMLElement[] {
-  const step = steps[i];
-  if (!step.variables.length) return [el('p', 'stepper-empty', 'Jeszcze nie ma żadnych zmiennych.')];
-  const changed = new Map(changes(steps[i - 1], step).map((c) => [c.name, c.before === null ? 'new' : 'changed']));
-  return step.variables.map((v) => {
+/** One value inside a line: a variable read, a function called, or an operation done. */
+function partCaption(line: number, part: TracePart): string {
+  if (/^[A-Za-z_]\w*$/.test(part.before)) {
+    return `Linijka ${line}: Python sprawdza, co jest w zmiennej ${code(part.before)}. Jest tam ${code(part.value)}.`;
+  }
+  if (/^[A-Za-z_][\w.]*\(.*\)$/.test(part.before)) {
+    return `Linijka ${line}: Python wywołuje ${code(part.before)} i dostaje ${code(part.value)}.`;
+  }
+  return `Linijka ${line}: ${code(part.before)} daje ${code(part.value)}.`;
+}
+
+function variablesView(current: TraceStep, previous: TraceStep | undefined): HTMLElement[] {
+  if (!current.variables.length) return [el('p', 'stepper-empty', 'Jeszcze nie ma żadnych zmiennych.')];
+  const changed = new Map(changes(previous, current).map((c) => [c.name, c.before === null ? 'new' : 'changed']));
+  return current.variables.map((v) => {
     const row = el('div', `stepper-var type-${['str', 'int', 'float', 'bool'].includes(v.type) ? v.type : 'other'} ${changed.get(v.name) ?? ''}`);
     row.append(el('span', 'var-name', v.name), el('span', 'var-value', v.value), el('span', 'var-type', v.type));
     return row;
   });
+}
+
+/** The line being computed: plain text with the newest value marked. */
+function partHtml(part: TracePart): string {
+  return `${escapeHtml(part.text.slice(0, part.from))}<mark>${escapeHtml(part.text.slice(part.from, part.to))}</mark>${escapeHtml(part.text.slice(part.to))}`;
 }
 
 /** Builds the player under `anchor` and records the program. */
@@ -68,9 +105,10 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
 
   const lines = source.replace(/\n$/, '').split('\n');
   const codeList = el('ol', 'stepper-code');
-  const lineItems = lines.map((line, n) => {
+  const highlighted = lines.map((line) => language.highlight(line) || ' ');
+  const lineItems = lines.map((_, n) => {
     const li = el('li');
-    li.innerHTML = `<span class="ln">${n + 1}</span><code>${language.highlight(line) || ' '}</code><span class="line-tag"></span>`;
+    li.innerHTML = `<span class="ln">${n + 1}</span><code>${highlighted[n]}</code><span class="line-tag"></span>`;
     codeList.append(li);
     return li;
   });
@@ -80,10 +118,8 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   const state = el('div', 'stepper-state');
   state.append(el('p', 'eyebrow', 'Zmienne'), vars, el('p', 'eyebrow', 'Na ekranie'), output);
 
-  const left = el('div', 'stepper-left');
-  left.append(codeList);
   const body = el('div', 'stepper-body');
-  body.append(left, state);
+  body.append(codeList, state);
 
   const text = el('p', 'stepper-caption');
   text.setAttribute('aria-live', 'polite');
@@ -91,46 +127,81 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   const count = el('span', 'stepper-count');
   const next = el('button', 'primary', 'Dalej ▶');
   const restart = el('button', 'ghost', 'Od początku');
+  const detail = el('label', 'stepper-detail');
+  const detailBox = el('input');
+  detailBox.type = 'checkbox';
+  detailBox.checked = loadDetailed();
+  detail.append(detailBox, ' Pokaż liczenie w linijce');
   const controls = el('div', 'stepper-controls');
-  controls.append(prev, count, next, restart);
+  controls.append(prev, count, next, restart, detail);
 
   root.append(body, text, controls);
   anchor.after(root);
 
   let steps: TraceStep[] = [];
-  let i = 0;
+  let positions: Position[] = [];
+  let at = 0;
+
+  function layout() {
+    positions = steps.flatMap((step, i) => [
+      ...(detailBox.checked ? (step.parts ?? []).map((_, p) => ({ step: i, part: p })) : []),
+      { step: i, part: null },
+    ]);
+  }
+
+  function setLine(n: number, kind: string, tag: string, html?: string) {
+    const li = lineItems[n];
+    li.className = kind;
+    li.querySelector('code')!.innerHTML = html ?? highlighted[n];
+    li.querySelector('.line-tag')!.textContent = tag;
+  }
 
   function render() {
+    const { step: i, part } = positions[at];
     const step = steps[i];
-    const following = steps[i + 1];
-    // a label right on the line says which one Python just ran and which one comes next
-    lineItems.forEach((li, n) => {
-      const failed = step.line === n + 1 && Boolean(step.error) && step.error!.type !== 'TooManySteps';
-      const done = step.line === n + 1 && !failed;
-      const upcoming = following?.line === n + 1 && !done && !step.error;
-      li.className = failed ? 'failed' : done ? 'done' : upcoming ? 'next' : '';
-      li.querySelector('.line-tag')!.textContent = failed ? '✗ błąd' : done ? '✓ wykonana' : upcoming ? '▶ następna' : '';
-    });
-    vars.replaceChildren(...variablesView(steps, i));
-    output.textContent = step.output || 'Na razie nic.';
-    output.classList.toggle('empty', !step.output);
-    text.innerHTML = caption(steps, i);
-    count.textContent = `Krok ${i + 1} z ${steps.length}`;
-    prev.disabled = i === 0;
-    next.disabled = i === steps.length - 1;
-    restart.hidden = i === 0;
+    lineItems.forEach((_, n) => setLine(n, '', ''));
+
+    if (part !== null) {
+      // inside a line: the variables and the screen are still as they were before this line
+      const before = steps[i - 1];
+      setLine(step.line! - 1, 'computing', '⋯ liczy', partHtml(step.parts[part]));
+      vars.replaceChildren(...variablesView(before, before));
+      output.textContent = before.output || 'Na razie nic.';
+      output.classList.toggle('empty', !before.output);
+      text.innerHTML = partCaption(step.line!, step.parts[part]);
+    } else {
+      const following = steps[i + 1];
+      const failed = Boolean(step.error) && step.error!.type !== 'TooManySteps';
+      if (following?.line && following.line !== step.line && !step.error) setLine(following.line - 1, 'next', '▶ następna');
+      if (step.line !== null) setLine(step.line - 1, failed ? 'failed' : 'done', failed ? '✗ błąd' : '✓ wykonana');
+      vars.replaceChildren(...variablesView(step, steps[i - 1]));
+      output.textContent = step.output || 'Na razie nic.';
+      output.classList.toggle('empty', !step.output);
+      text.innerHTML = lineCaption(steps, i);
+    }
+    count.textContent = `Krok ${at + 1} z ${positions.length}`;
+    prev.disabled = at === 0;
+    next.disabled = at === positions.length - 1;
+    restart.hidden = at === 0;
   }
 
   const go = (to: number) => {
-    i = Math.max(0, Math.min(steps.length - 1, to));
+    at = Math.max(0, Math.min(positions.length - 1, to));
     render();
   };
-  prev.addEventListener('click', () => go(i - 1));
-  next.addEventListener('click', () => go(i + 1));
+  prev.addEventListener('click', () => go(at - 1));
+  next.addEventListener('click', () => go(at + 1));
   restart.addEventListener('click', () => go(0));
+  detailBox.addEventListener('change', () => {
+    saveDetailed(detailBox.checked);
+    if (!steps.length) return;
+    const current = positions[at].step;
+    layout();
+    go(positions.findIndex((p) => p.step === current && p.part === null));
+  });
   root.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight') go(i + 1);
-    else if (e.key === 'ArrowLeft') go(i - 1);
+    if (e.key === 'ArrowRight') go(at + 1);
+    else if (e.key === 'ArrowLeft') go(at - 1);
     else return;
     e.preventDefault();
   });
@@ -146,6 +217,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
         return;
       }
       steps = result.steps;
+      layout();
       go(0);
       root.focus({ preventScroll: true });
     })

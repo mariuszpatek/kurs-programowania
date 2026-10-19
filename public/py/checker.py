@@ -5,6 +5,7 @@ can be validated against reference solutions before they are published.
 Student-facing messages are in Polish.
 """
 
+import ast
 import builtins
 import io
 import re
@@ -263,19 +264,130 @@ def _describe_variables(namespace):
     return variables
 
 
+MAX_PARTS = 60
+VALUE_HOOK = "__step_value__"
+
+
+class _Instrument(ast.NodeTransformer):
+    """Wraps every expression worth showing in VALUE_HOOK(id, expr), so evaluating it reports the value.
+
+    Skipped: constants (nothing to compute), assignment targets, the function part of a call
+    (`print` itself is not interesting), expressions spanning several lines, and a call that
+    is a whole statement (`print(...)` returns None).
+    """
+
+    def __init__(self):
+        self.spans = []
+
+    def _wrap(self, node):
+        if isinstance(node, (ast.Constant, ast.Starred, ast.Slice)) or not isinstance(getattr(node, "ctx", ast.Load()), ast.Load):
+            return node
+        if node.lineno != node.end_lineno:
+            return node
+        self.spans.append((node.lineno, node.col_offset, node.end_col_offset))
+        call = ast.Call(ast.Name(VALUE_HOOK, ast.Load()), [ast.Constant(len(self.spans) - 1), node], [])
+        return ast.copy_location(call, node)
+
+    def visit_Expr(self, node):
+        if isinstance(node.value, ast.Call):
+            node.value = self._visit_call_parts(node.value)
+            return node
+        return self.generic_visit(node)
+
+    def visit_Call(self, node):
+        return self._wrap(self._visit_call_parts(node))
+
+    def _visit_call_parts(self, node):
+        # the callee is not reported itself, only what it is called on (x in x.upper())
+        if isinstance(node.func, ast.Attribute):
+            node.func.value = self.visit(node.func.value)
+        elif not isinstance(node.func, ast.Name):
+            node.func = self.visit(node.func)
+        node.args = [self.visit(a) for a in node.args]
+        for k in node.keywords:
+            k.value = self.visit(k.value)
+        return node
+
+    def visit_FormattedValue(self, node):
+        # inside an f-string: the value is shown, the format spec is not code
+        node.value = self.visit(node.value)
+        return node
+
+    def generic_visit(self, node):
+        node = super().generic_visit(node)
+        return self._wrap(node) if isinstance(node, ast.expr) else node
+
+
+def _char_col(line, byte_col):
+    """AST columns count UTF-8 bytes; the page counts characters (Polish letters are 2 bytes)."""
+    return len(line.encode("utf-8")[:byte_col].decode("utf-8", errors="ignore"))
+
+
+def _line_parts(source_line, events, spans):
+    """How Python computes one line: after each reported value, the line with computed parts replaced.
+
+    Each part: the text shown, where the newest value sits in it, what was replaced and by what.
+    """
+    parts = []
+    done = []  # (start, end, value) in characters of the original line, outermost only
+    for index, value in events:
+        _, start, end = spans[index]
+        start, end = _char_col(source_line, start), _char_col(source_line, end)
+        inner = [d for d in done if start <= d[0] and d[1] <= end]
+        # the span as it looks right now: its inner parts are already replaced by values
+        length = (end - start) + sum(len(v) - (e - s) for s, e, v in inner)
+        before = _render(source_line, inner, start, end)[0][start : start + length]
+        if before == value:
+            continue
+        done = [d for d in done if d not in inner] + [(start, end, value)]
+        text, at = _render(source_line, done, start, end)
+        parts.append({"text": text, "from": at, "to": at + len(value), "before": before, "value": value})
+        if len(parts) >= MAX_PARTS:
+            break
+    return parts
+
+
+def _render(source_line, done, start, end):
+    """The line with every computed span replaced; also where the span starting at `start` lands."""
+    text, cursor, at = "", 0, start
+    for s, e, value in sorted(done):
+        text += source_line[cursor:s]
+        if s == start and e == end:
+            at = len(text)
+        text += value
+        cursor = e
+    return text + source_line[cursor:], at
+
+
 def trace(code, stdin=""):
     """"Step by step" view of a lesson example: the state after every executed line.
 
     Each step: the line just executed (None before the start), variables, output so far,
-    and an error if the program stopped on that line.
+    an error if the program stopped on that line, and `parts`: how the line was computed,
+    value by value (for "Dokładnie", like Thonny's step into).
     """
     out = _Output()
     namespace = _student_namespace(stdin, out)
     steps = []
     previous = [None]
+    events = []
+    source_lines = code.splitlines()
+
+    def report(index, value):
+        if len(events) < MAX_PARTS * 3:
+            text = repr(value)
+            events.append((index, text if len(text) <= 60 else text[:57] + "..."))
+        return value
+
+    namespace["__builtins__"][VALUE_HOOK] = report
 
     def snapshot(error=None):
-        steps.append({"line": previous[0], "variables": _describe_variables(namespace), "output": out.getvalue(), "error": error})
+        line = previous[0]
+        parts = []
+        if line is not None and events and 1 <= line <= len(source_lines):
+            parts = _line_parts(source_lines[line - 1], [e for e in events if spans[e[0]][0] == line], spans)
+        events.clear()
+        steps.append({"line": line, "variables": _describe_variables(namespace), "output": out.getvalue(), "error": error, "parts": parts})
         if len(steps) > MAX_STEPS:
             raise TooManySteps()
 
@@ -290,9 +402,12 @@ def trace(code, stdin=""):
 
     real_stdout = sys.stdout
     try:
-        compiled = compile(code, STUDENT_FILE, "exec")
+        tree = ast.parse(code, STUDENT_FILE)
     except SyntaxError as exc:
         return {"steps": [], "error": _describe_error(exc, code)}
+    instrument = _Instrument()
+    spans = instrument.spans
+    compiled = compile(ast.fix_missing_locations(instrument.visit(tree)), STUDENT_FILE, "exec")
     try:
         sys.stdout = out
         sys.settrace(on_call)

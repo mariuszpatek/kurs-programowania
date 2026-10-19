@@ -107,6 +107,22 @@ class Trace(unittest.TestCase):
         self.assertEqual(result["steps"], [])
         self.assertEqual(result["error"]["type"], "SyntaxError")
 
+    def test_parts_show_how_a_line_is_computed(self):
+        parts = checker.trace("print(2 + 3 * 4)\n")["steps"][1]["parts"]
+        self.assertEqual([p["text"] for p in parts], ["print(2 + 12)", "print(14)"])
+        self.assertEqual((parts[0]["before"], parts[0]["value"]), ("3 * 4", "12"))
+        self.assertEqual(parts[0]["text"][parts[0]["from"] : parts[0]["to"]], "12")
+
+    def test_parts_with_polish_letters_and_input(self):
+        code = 'age = int(input("Ile masz lat? "))\nprint("Będziesz mieć", age + 1)\n'
+        steps = checker.trace(code, "16\n")["steps"]
+        self.assertEqual([p["text"] for p in steps[1]["parts"]], ["age = int('16')", "age = 16"])
+        self.assertEqual([p["text"] for p in steps[2]["parts"]], ['print("Będziesz mieć", 16 + 1)', 'print("Będziesz mieć", 17)'])
+
+    def test_instrumented_program_behaves_the_same(self):
+        code = 'name = "ola".upper()\nok = 5 > 3 and name == "OLA"\nprint(f"{10 / 3:.2f}", ok)\n'
+        self.assertEqual(checker.trace(code)["steps"][-1]["output"], checker.run(code).output)
+
     def test_endless_loop_is_cut(self):
         result = checker.trace("while True:\n    x = 1\n")
         self.assertEqual(len(result["steps"]), checker.MAX_STEPS + 1)
