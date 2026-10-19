@@ -7,6 +7,17 @@ import Layout from '../layouts/Layout.astro';
   <h1 id="account-email"></h1>
   <p class="muted" id="account-role"></p>
   <button id="logout">Wyloguj</button>
+
+  <form id="password-form" class="card password">
+    <h2>Hasło</h2>
+    <p class="muted">Z hasłem zalogujesz się także wtedy, gdy link z maila nie dojdzie. Co najmniej 8 znaków.</p>
+    <label class="eyebrow" for="new-password">Nowe hasło</label>
+    <input id="new-password" name="password" type="password" minlength="8" required autocomplete="new-password" />
+    <label class="eyebrow" for="repeat-password">Powtórz hasło</label>
+    <input id="repeat-password" name="repeat" type="password" minlength="8" required autocomplete="new-password" />
+    <button class="primary" type="submit">Ustaw hasło</button>
+    <p id="password-message" class="muted" role="status" hidden></p>
+  </form>
 </Layout>
 
 <script>
@@ -26,6 +37,32 @@ import Layout from '../layouts/Layout.astro';
       : `Zapisany na: ${titles}.`;
   });
 
+  document.getElementById('password-form')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const data = new FormData(form);
+    const message = document.getElementById('password-message')!;
+    message.hidden = false;
+    if (data.get('password') !== data.get('repeat')) {
+      message.textContent = 'Hasła się różnią. Wpisz to samo hasło dwa razy.';
+      return;
+    }
+    form.querySelector('button')!.disabled = true;
+    const { error } = await supabase.auth.updateUser({ password: data.get('password') as string });
+    form.querySelector('button')!.disabled = false;
+    if (error) {
+      message.textContent =
+        error.code === 'same_password'
+          ? 'To już jest Twoje hasło.'
+          : error.code === 'weak_password'
+            ? 'Hasło jest za słabe. Wybierz dłuższe albo mniej oczywiste.'
+            : `Nie udało się ustawić hasła: ${error.message}`;
+      return;
+    }
+    form.reset();
+    message.textContent = 'Hasło ustawione. Możesz logować się nim w zakładce „Hasło” na stronie logowania.';
+  });
+
   document.getElementById('logout')!.addEventListener('click', async () => {
     await supabase.auth.signOut();
     location.href = url('login/');
@@ -39,5 +76,21 @@ import Layout from '../layouts/Layout.astro';
   }
   #logout {
     margin-top: 8px;
+  }
+  .password {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 420px;
+    margin-top: 40px;
+    padding: 24px;
+  }
+  .password h2,
+  .password p {
+    margin: 0;
+  }
+  .password button {
+    align-self: flex-start;
+    margin-top: 6px;
   }
 </style>

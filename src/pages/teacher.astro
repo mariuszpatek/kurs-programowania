@@ -186,6 +186,7 @@ import Layout from '../layouts/Layout.astro';
 
     const footer = el('div', '', 'student-footer');
     footer.append(
+      passwordForm(e.email),
       confirmButton('Usuń z kursu', 'Na pewno? Kliknij znowu', async () => {
         const { error } = await supabase.from('lms_enrollments').delete().eq('email', e.email).eq('course_id', e.course_id);
         if (error) alertInline(`Nie udało się usunąć: ${error.message}`);
@@ -194,6 +195,36 @@ import Layout from '../layouts/Layout.astro';
     );
     card.append(footer);
     return card;
+  }
+
+  /** For when the login link does not reach the student: the teacher sets a password (lms-invite). */
+  function passwordForm(email: string) {
+    const form = el('form', '', 'set-password');
+    const input = el('input');
+    input.type = 'text';
+    input.minLength = 8;
+    input.required = true;
+    input.placeholder = 'Nowe hasło ucznia';
+    input.autocomplete = 'off';
+    input.setAttribute('aria-label', `Nowe hasło dla ${email}`);
+    const button = el('button', 'Ustaw hasło', 'ghost');
+    const message = el('span', '', 'muted');
+    form.append(input, button, message);
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      button.disabled = true;
+      const { data, error } = await supabase.functions.invoke('lms-invite', { body: { email, password: input.value } });
+      button.disabled = false;
+      if (error || data?.error) {
+        // a 4xx from the function arrives as an error whose response body has the reason
+        const reason = data?.error ?? (await error?.context?.json?.().catch(() => null))?.error;
+        message.textContent = reason ?? 'Nie udało się ustawić hasła.';
+        return;
+      }
+      message.textContent = 'Ustawione. Przekaż hasło uczniowi.';
+      input.value = '';
+    });
+    return form;
   }
 
   function lessonRow(course: Course, lesson: Lesson, notes: string | undefined) {
@@ -579,8 +610,23 @@ import Layout from '../layouts/Layout.astro';
     margin: 8px 0 0;
     font-size: 13px;
   }
+  .students :global(.set-password) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-right: auto;
+  }
+  .students :global(.set-password input) {
+    width: 180px;
+  }
+  .students :global(.set-password .muted) {
+    font-size: 13px;
+  }
   .students :global(.student-footer) {
     display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     justify-content: flex-end;
     padding-top: 12px;
     border-top: 1px solid var(--line);

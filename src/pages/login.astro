@@ -8,11 +8,25 @@ import Layout from '../layouts/Layout.astro';
     <h1>Logowanie</h1>
     <p class="muted">Dostęp mają tylko osoby zapisane na kurs przez nauczyciela.</p>
 
+    <div class="modes" role="tablist" aria-label="Sposób logowania">
+      <button type="button" role="tab" class="mode" id="mode-link" aria-selected="true">Link na maila</button>
+      <button type="button" role="tab" class="mode" id="mode-password" aria-selected="false">Hasło</button>
+    </div>
+
     <form id="login-form" class="card panel">
       <label class="eyebrow" for="login-email">E-mail</label>
       <input id="login-email" type="email" name="email" placeholder="twoj@email.pl" required autocomplete="email" />
       <button class="primary wide" type="submit">Wyślij link do logowania</button>
       <p class="muted small">Nie potrzebujesz hasła. Wyślemy Ci link, który Cię zaloguje.</p>
+    </form>
+
+    <form id="password-form" class="card panel" hidden>
+      <label class="eyebrow" for="password-email">E-mail</label>
+      <input id="password-email" type="email" name="email" placeholder="twoj@email.pl" required autocomplete="username" />
+      <label class="eyebrow" for="password-password">Hasło</label>
+      <input id="password-password" type="password" name="password" required autocomplete="current-password" />
+      <button class="primary wide" type="submit">Zaloguj</button>
+      <p class="muted small">Hasło ustawisz na stronie Konto po zalogowaniu linkiem. Jeśli link nie dochodzi, poproś nauczyciela o hasło.</p>
     </form>
 
     <div id="login-sent" class="card panel" hidden>
@@ -63,6 +77,42 @@ import Layout from '../layouts/Layout.astro';
     $('login-sent').hidden = false;
   });
 
+  function showMode(password: boolean) {
+    $('mode-link').setAttribute('aria-selected', String(!password));
+    $('mode-password').setAttribute('aria-selected', String(password));
+    $('login-form').hidden = password;
+    $('password-form').hidden = !password;
+    $('login-sent').hidden = true;
+    $('login-error').hidden = true;
+  }
+  $('mode-link').addEventListener('click', () => showMode(false));
+  $('mode-password').addEventListener('click', () => showMode(true));
+
+  $('password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const data = new FormData(form);
+    const button = form.querySelector('button')!;
+    button.disabled = true;
+    $('login-error').hidden = true;
+    const { error } = await supabase.auth.signInWithPassword({
+      email: (data.get('email') as string).trim().toLowerCase(),
+      password: data.get('password') as string,
+    });
+    button.disabled = false;
+    if (error) {
+      $('login-error').textContent =
+        error.status === 400
+          ? 'Zły e-mail albo hasło. Jeśli nie masz jeszcze hasła, zaloguj się linkiem albo poproś nauczyciela.'
+          : error.status === 429
+            ? 'Za dużo prób w krótkim czasie. Odczekaj chwilę i spróbuj ponownie.'
+            : `Nie udało się zalogować: ${error.message}`;
+      $('login-error').hidden = false;
+      return;
+    }
+    location.replace(next);
+  });
+
   $('login-again').addEventListener('click', () => {
     $('login-sent').hidden = true;
     $('login-form').hidden = false;
@@ -73,6 +123,31 @@ import Layout from '../layouts/Layout.astro';
   .login {
     max-width: 420px;
     margin: 24px auto 0;
+  }
+  .modes {
+    display: flex;
+    gap: 4px;
+    margin-top: 24px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+  }
+  .mode {
+    flex: 1;
+    height: 34px;
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+  }
+  .mode[aria-selected='true'] {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+  .modes + .panel,
+  #password-form {
+    margin-top: 12px;
   }
   .panel {
     margin-top: 28px;
