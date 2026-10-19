@@ -601,6 +601,8 @@ kbd {
 
 input[type='email'],
 input[type='number'],
+input[type='password'],
+input[type='text'],
 select,
 textarea {
   font: inherit;
