@@ -162,7 +162,7 @@ import Layout from '../layouts/Layout.astro';
       });
     }
     $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
-    enhanceContent($('lesson-body'));
+    enhanceContent($('lesson-body'), { playground: true });
     const minutes = readingMinutes($('lesson-body'));
 
     if (access.isTeacher) {

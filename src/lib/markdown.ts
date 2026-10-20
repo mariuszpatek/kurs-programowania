@@ -9,6 +9,8 @@
 //   ```python krok        code with a "Krok po kroku" button (src/lib/stepper.ts);
 //   ```python krok 16 Ola  words after "krok" are the answers for input()
 //   ```python błąd         a syntax error shown on purpose (sync-content does not try to compile it)
+// In lessons every example in a language that runs in the browser also gets "Zmień i uruchom"
+// (src/lib/playground.ts): the example opens as an editor in place.
 // A code block directly followed by an output/error block is shown as one "code → result" card.
 //
 // Links are marked by where they lead, with no extra syntax: a paragraph with a video link
@@ -38,8 +40,11 @@ function codeFigure(text: string, fence: string, flags: string[] = []): string {
   const body = language ? language.highlight(text) : escapeHtml(text);
   const caption = language?.label ?? (fence ? escapeHtml(fence) : 'Tekst');
   const steppable = flags[0] === 'krok' && language?.runner?.trace;
-  const attrs = steppable ? ` data-fence="${escapeHtml(fence)}" data-stdin="${escapeHtml(flags.slice(1).join('\n'))}"` : '';
-  return `<figure class="code-block copyable${steppable ? ' steppable' : ''}"${attrs}><figcaption>${caption}</figcaption><pre><code>${body}</code></pre></figure>`;
+  const runnable = Boolean(language?.runner);
+  const stdin = flags[0] === 'krok' ? flags.slice(1).join('\n') : '';
+  const attrs = runnable ? ` data-fence="${escapeHtml(fence)}" data-stdin="${escapeHtml(stdin)}"` : '';
+  const classes = `${runnable ? ' runnable' : ''}${steppable ? ' steppable' : ''}`;
+  return `<figure class="code-block copyable${classes}"${attrs}><figcaption>${caption}</figcaption><pre><code>${body}</code></pre></figure>`;
 }
 
 const CALLOUTS: Record<string, string> = {
@@ -95,8 +100,8 @@ export function renderUntrustedMarkdown(md: string): string {
 }
 
 /** Adds Copy buttons, joins code with the output block right after it and adds step controls to drawings.
- * Call after inserting rendered HTML. */
-export function enhanceContent(root: HTMLElement) {
+ * With `playground`, runnable examples also get "Zmień i uruchom" (lessons only). Call after inserting rendered HTML. */
+export function enhanceContent(root: HTMLElement, { playground = false } = {}) {
   mountDiagrams(root);
   for (const figure of root.querySelectorAll<HTMLElement>('figure.code-block.copyable')) {
     const next = figure.nextElementSibling;
@@ -123,7 +128,26 @@ export function enhanceContent(root: HTMLElement) {
     });
     figure.querySelector('figcaption')!.append(button);
     if (figure.matches('.steppable')) addStepButton(figure);
+    if (playground && figure.matches('.runnable')) addEditButton(figure);
   }
+}
+
+function addEditButton(figure: HTMLElement) {
+  const language = languageByFence(figure.dataset.fence ?? '')!;
+  const button = document.createElement('button');
+  button.className = 'edit ghost';
+  button.type = 'button';
+  button.textContent = 'Zmień i uruchom';
+  const listing = figure.closest<HTMLElement>('.code-pair') ?? figure;
+  button.addEventListener('click', async () => {
+    // the steps of the original example would be out of date next to the changed code
+    const stepButton = figure.querySelector<HTMLButtonElement>('figcaption .step');
+    if (stepButton?.textContent === 'Ukryj kroki') stepButton.click();
+    const { mountPlayground } = await import('./playground');
+    const source = figure.querySelector('pre')!.textContent ?? '';
+    mountPlayground(listing, source, language, figure.dataset.stdin ?? '', () => button.focus());
+  });
+  figure.querySelector('figcaption')!.firstElementChild!.before(button);
 }
 
 function addStepButton(figure: HTMLElement) {

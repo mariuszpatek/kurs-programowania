@@ -19,6 +19,14 @@ export function saveDraft(key: string, code: string) {
   }
 }
 
+export function clearDraft(key: string) {
+  try {
+    localStorage.removeItem(draftKey(key));
+  } catch {
+    // nothing was stored
+  }
+}
+
 export function hasDraft(key: string): boolean {
   return loadDraft(key) !== null;
 }

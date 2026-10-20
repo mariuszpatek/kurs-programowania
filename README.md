@@ -80,6 +80,10 @@ Ramki (składnia jak na GitHubie):
 
 Znacznik `<!-- zadanie: 3 -->` w lekcji (na końcu działu) pokazuje w tym miejscu kartę „Sprawdź się” z linkiem do zadania 3 tej lekcji i jego stanem; po zaliczeniu karta robi się zielona. Kilka zadań w jednej karcie: `<!-- zadanie: 3, 4 -->`. Zadania dalej są też na liście pod lekcją. `sync-content` odrzuca znacznik z numerem, którego lekcja nie ma.
 
+### Zmień i uruchom (`src/lib/playground.ts`)
+
+Każdy przykład w lekcji w języku, który działa w przeglądarce, ma przycisk „Zmień i uruchom”: karta zamienia się w miejscu w edytor z „Uruchom”, „Krok po kroku” (dla zmienionego kodu) i „Przywróć”. Dane dla `input()` są wypełnione słowami po `krok`. Zmiany zostają tylko w przeglądarce ucznia, nic nie trafia do bazy.
+
 ### Krok po kroku (`src/lib/stepper.ts`)
 
 Przykład ```` ```python krok ```` uruchamia się w przeglądarce (`checker.trace`): po każdej linijce widać zmienne z typami i to, co jest na ekranie. Z „Pokaż liczenie w linijce” każda linijka rozkłada się na wartości, jak „step into” w Thonny (`age = int('16')` → `age = 16`). Przyciski Wstecz / Dalej / Odtwórz są wspólne z rysunkami (`src/lib/step-controls.ts`).
