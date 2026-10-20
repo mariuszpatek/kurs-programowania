@@ -8,6 +8,7 @@
 //   ```         plain text (e.g. a prompt to copy): with a Copy button
 //   ```python krok        code with a "Krok po kroku" button (src/lib/stepper.ts);
 //   ```python krok 16 Ola  words after "krok" are the answers for input()
+//   ```python błąd         a syntax error shown on purpose (sync-content does not try to compile it)
 // A code block directly followed by an output/error block is shown as one "code → result" card.
 //
 // Links are marked by where they lead, with no extra syntax: a paragraph with a video link

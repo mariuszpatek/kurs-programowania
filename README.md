@@ -59,6 +59,7 @@ Kurs w innym języku (`--language csharp`) działa od razu jako lekcje i zadania
 | Blok | Wygląd |
 |---|---|
 | ```` ```python ```` | kod z kolorowaniem, podpisem języka i przyciskiem „Kopiuj” |
+| ```` ```python błąd ```` | kod z celowym błędem składni (walidacja go nie kompiluje) |
 | ```` ```python krok ```` | to samo plus przycisk „Krok po kroku” (słowa po `krok` to odpowiedzi dla `input()`, np. ```` ```python krok 16 ````) |
 | ```` ```output ```` | wynik programu w stylu konsoli |
 | ```` ```error ```` | komunikat błędu w stylu konsoli, na czerwono |

@@ -3,7 +3,8 @@
 Reads {"tasks": [...], "lessons": [...]} as JSON on stdin (written by sync-content.mjs for Python courses).
 - Tasks: the reference solution must pass every test (or, for "predict" tasks, match the real output),
   and every "bad" solution must fail at least one test, so the tests really catch that mistake.
-- Lessons: every ```python example must compile, and every ```python krok example must run in the
+- Lessons: every ```python example must compile (except ```python błąd, a syntax error shown on purpose),
+  and every ```python krok example must run in the
   "step by step" view (an error at runtime is fine: lessons show errors on purpose).
 - Spoilers (warning only): a lesson example that repeats two lines of a task's reference solution in a row.
 Prints a report and exits with 1 when anything is wrong.
@@ -56,6 +57,8 @@ def validate_lesson(lesson):
     for flags, code in lesson_examples(lesson):
         first = code.strip().splitlines()[0] if code.strip() else ""
         where = f"lekcja {lesson['number']}, przykład „{first}”"
+        if "błąd" in flags:
+            continue
         try:
             compile(code, "lekcja", "exec")
         except SyntaxError as exc:
