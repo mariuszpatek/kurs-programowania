@@ -64,6 +64,8 @@ import Layout from '../layouts/Layout.astro';
 
   let courseData = new Map<string, CourseData>();
   let attempts: Attempt[] = [];
+  /** How many hints each student opened per task: "email|task_id" -> count. */
+  let hintsOpened = new Map<string, number>();
 
   /** What went wrong in an attempt: names of failed tests, or mispredicted lines. */
   function failures(a: Attempt): string[] {
@@ -73,6 +75,11 @@ import Layout from '../layouts/Layout.astro';
       if ('name' in r) return [r.name];
       return [`linijka ${i + 1}: „${r.student ?? ''}” zamiast „${r.actual ?? ''}”`];
     });
+  }
+
+  function hintsLabel(email: string, t: Task) {
+    const opened = hintsOpened.get(`${email}|${t.id}`);
+    return opened && t.hints?.length ? `podpowiedzi ${opened}/${t.hints.length}` : '';
   }
 
   function history(list: Attempt[]) {
@@ -178,7 +185,7 @@ import Layout from '../layouts/Layout.astro';
           t.draft ? 'szkic, uczeń nie widzi' : locked ? 'zablokowane' : list.length ? (passed ? 'zaliczone' : 'w trakcie') : 'nie zaczęte',
           `status-dot ${passed ? 'done' : list.length ? 'started' : ''}`,
         ),
-        el('span', list.length ? `${list.length} ${plural(list.length)}` : '', 'count'),
+        el('span', [list.length ? `${list.length} ${plural(list.length)}` : '', hintsLabel(e.email, t)].filter(Boolean).join(' · '), 'count'),
       );
       row.append(summary, list.length ? history(list) : el('p', 'Brak prób.', 'muted empty'));
       card.append(row);
@@ -292,10 +299,12 @@ import Layout from '../layouts/Layout.astro';
   }
 
   async function load() {
-    const [{ data: enrollments }, { data: rawAttempts, error }] = await Promise.all([
+    const [{ data: enrollments }, { data: rawAttempts, error }, { data: hintViews }] = await Promise.all([
       supabase.from('lms_enrollments').select('email, course_id, unlocked_through').order('created_at'),
       supabase.rpc('lms_teacher_attempts'),
+      supabase.rpc('lms_teacher_hint_views'),
     ]);
+    hintsOpened = new Map(((hintViews ?? []) as { email: string; task_id: string; opened: number }[]).map((h) => [`${h.email}|${h.task_id}`, h.opened]));
     if (error) {
       alertInline(`Brak dostępu do panelu: ${error.message}`);
       return;

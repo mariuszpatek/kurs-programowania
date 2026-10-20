@@ -1,6 +1,7 @@
 // Graded hints under a task. The first unlocks after FIRST_AFTER failed checks, each next one after
 // one more failed check; a teacher, or a student who already passed, can open all of them.
-// How many the student has opened is remembered in this browser only.
+// Opened hints are saved in lms_hint_views, so the teacher sees them in the dashboard and they stay
+// open on another computer; this browser also remembers them in case saving fails.
 import { supabase, currentUser } from './supabase';
 import { renderMarkdown } from './markdown';
 
@@ -33,7 +34,10 @@ export async function mountHints(root: HTMLElement, task: { id: string; hints: s
     : { data: [] };
   let failed = (data ?? []).filter((a) => !a.passed).length;
   let passed = (data ?? []).some((a) => a.passed);
-  let opened = loadOpened(task.id);
+  const { data: views } = user
+    ? await supabase.from('lms_hint_views').select('hint_index').eq('user_id', user.id).eq('task_id', task.id)
+    : { data: [] };
+  let opened = Math.max(loadOpened(task.id), (views ?? []).length);
 
   const list = root.querySelector<HTMLOListElement>('.hint-list')!;
   const button = root.querySelector<HTMLButtonElement>('.hint-button')!;
@@ -62,10 +66,15 @@ export async function mountHints(root: HTMLElement, task: { id: string; hints: s
     info.hidden = !info.textContent;
   }
 
-  button.addEventListener('click', () => {
+  button.addEventListener('click', async () => {
     opened += 1;
     saveOpened(task.id, opened);
     render();
+    // for the teacher's dashboard; a repeated click on another device is simply ignored
+    const { error } = await supabase
+      .from('lms_hint_views')
+      .upsert({ task_id: task.id, hint_index: opened - 1 }, { onConflict: 'user_id,task_id,hint_index', ignoreDuplicates: true });
+    if (error) console.warn('Hint view not saved', error);
   });
   // saveAttempt() announces every check, so hints unlock without reloading the page
   window.addEventListener('kurs:attempt', (e) => {
