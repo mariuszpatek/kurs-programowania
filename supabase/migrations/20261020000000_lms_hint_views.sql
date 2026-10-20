@@ -1,5 +1,6 @@
+-- Safe to run again (if not exists / drop if exists / or replace).
 -- Which hints a student opened (src/lib/hints.ts); the dashboard shows "podpowiedzi 2/3" per task.
-create table public.lms_hint_views (
+create table if not exists public.lms_hint_views (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   task_id uuid not null references public.lms_tasks on delete cascade,
   hint_index int not null,
@@ -9,6 +10,7 @@ create table public.lms_hint_views (
 
 alter table public.lms_hint_views enable row level security;
 
+drop policy if exists "students save own hint views on visible tasks" on public.lms_hint_views;
 create policy "students save own hint views on visible tasks" on public.lms_hint_views
   for insert to authenticated
   with check (
@@ -19,11 +21,12 @@ create policy "students save own hint views on visible tasks" on public.lms_hint
     )
   );
 
+drop policy if exists "students read own hint views, teachers all" on public.lms_hint_views;
 create policy "students read own hint views, teachers all" on public.lms_hint_views
   for select to authenticated using (user_id = auth.uid() or public.lms_is_teacher());
 
 -- Like lms_teacher_attempts: the dashboard needs e-mails, which only auth.users has.
-create function public.lms_teacher_hint_views()
+create or replace function public.lms_teacher_hint_views()
 returns table (email text, task_id uuid, opened int)
 language plpgsql stable security definer set search_path = ''
 as $$
