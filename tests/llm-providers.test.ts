@@ -1,7 +1,7 @@
 // Run: node --experimental-strip-types --test tests/llm-providers.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCall, costOf, parseRequest, parseResponse, providerError, LIMITS } from '../supabase/functions/llm/providers.ts';
+import { buildCall, costOf, parseRequest, parseResponse, providerError, withoutOptionalParams, LIMITS } from '../supabase/functions/llm/providers.ts';
 
 const ok = (body: unknown) => {
   const r = parseRequest(body);
@@ -40,6 +40,30 @@ test('buildCall: Anthropic puts system outside messages, OpenRouter as the first
   assert.equal((o.headers as any).Authorization, 'Bearer k');
   assert.deepEqual((o.body as any).messages[0], { role: 'system', content: 'Pirat' });
   assert.deepEqual((o.body as any).usage, { include: true });
+});
+
+test('effort goes to output_config (Anthropic) and reasoning (OpenRouter); default max_tokens leaves room for thinking', () => {
+  const req = { ...ok({ messages: [{ role: 'user', content: 'Hej' }] }), effort: 'low' as const };
+  assert.equal(req.max_tokens, LIMITS.defaultMaxTokens);
+  assert.deepEqual((buildCall('anthropic', 'claude-haiku-5-5', 'k', req).body as any).output_config, { effort: 'low' });
+  assert.deepEqual((buildCall('openrouter', 'anthropic/claude-haiku-5.5', 'k', req).body as any).reasoning, { effort: 'low' });
+});
+
+test('withoutOptionalParams drops temperature and effort for the retry', () => {
+  const req = { ...ok({ messages: [{ role: 'user', content: 'Hej' }], temperature: 0 }), effort: 'low' as const };
+  const retry = withoutOptionalParams(req)!;
+  assert.deepEqual(retry.dropped, ['temperature', 'effort']);
+  assert.equal('temperature' in retry.request || 'effort' in retry.request, false);
+  assert.equal(withoutOptionalParams(ok({ messages: [{ role: 'user', content: 'Hej' }] })), null);
+});
+
+test('parseResponse: Anthropic skips thinking blocks', () => {
+  const r = parseResponse('anthropic', {
+    content: [{ type: 'thinking', thinking: '', signature: 'x' }, { type: 'text', text: 'Ahoj' }],
+    usage: { input_tokens: 5, output_tokens: 40 },
+    stop_reason: 'end_turn',
+  });
+  assert.equal(r.text, 'Ahoj');
 });
 
 test('parseResponse: Anthropic text blocks and usage', () => {

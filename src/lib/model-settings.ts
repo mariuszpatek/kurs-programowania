@@ -7,6 +7,7 @@ type Settings = {
   provider: 'anthropic' | 'openrouter';
   anthropic_model: string;
   openrouter_model: string;
+  effort: 'low' | 'medium' | 'high' | null;
   input_price_per_mtok: number;
   output_price_per_mtok: number;
   student_monthly_limit_usd: number;
@@ -66,6 +67,13 @@ export async function mountModelSettings(root: HTMLElement) {
   });
   const anthropicModel = input(settings.anthropic_model);
   const openrouterModel = input(settings.openrouter_model);
+  const effort = el('select');
+  for (const [value, label] of [['low', 'low (domyślnie)'], ['medium', 'medium'], ['high', 'high'], ['', 'nie wysyłaj (np. Haiku 4.5)']]) {
+    const option = el('option', label);
+    option.value = value;
+    option.selected = (settings.effort ?? '') === value;
+    effort.append(option);
+  }
   const priceIn = input(settings.input_price_per_mtok, 'number', '0.01');
   const priceOut = input(settings.output_price_per_mtok, 'number', '0.01');
   const studentLimit = input(settings.student_monthly_limit_usd, 'number', '0.1');
@@ -81,8 +89,9 @@ export async function mountModelSettings(root: HTMLElement) {
   );
   const [, models, money, actions] = [...form.children] as HTMLElement[];
   models.append(
-    field('Model Anthropic', anthropicModel, 'np. claude-haiku-4-5'),
-    field('Model OpenRouter', openrouterModel, 'np. anthropic/claude-haiku-4.5'),
+    field('Model Anthropic', anthropicModel, 'np. claude-haiku-5-5'),
+    field('Model OpenRouter', openrouterModel, 'np. anthropic/claude-haiku-5.5'),
+    field('Myślenie (effort)', effort, 'ile model myśli przed odpowiedzią; myślenie płaci się jak tokeny wyjścia'),
   );
   money.append(
     field('Cena wejścia (USD / 1M tokenów)', priceIn, 'do liczenia kosztu przy Anthropic; OpenRouter podaje koszt sam'),
@@ -101,6 +110,7 @@ export async function mountModelSettings(root: HTMLElement) {
         provider: radios.find((r) => r.checked)!.value,
         anthropic_model: anthropicModel.value.trim(),
         openrouter_model: openrouterModel.value.trim(),
+        effort: effort.value || null,
         input_price_per_mtok: Number(priceIn.value),
         output_price_per_mtok: Number(priceOut.value),
         student_monthly_limit_usd: Number(studentLimit.value),

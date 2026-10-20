@@ -3,7 +3,7 @@
 // API keys live only in Supabase secrets: ANTHROPIC_API_KEY, OPENROUTER_API_KEY.
 // Every call is written to lms_llm_usage; a user over their monthly limit gets 429 before the provider is called.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { buildCall, costOf, parseRequest, parseResponse, providerError, type Provider } from './providers.ts';
+import { buildCall, costOf, parseRequest, parseResponse, providerError, withoutOptionalParams, type Effort, type Provider } from './providers.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -26,8 +26,8 @@ Deno.serve(async (req) => {
   const [{ data: hasAccess }, { data: isTeacher }] = await Promise.all([asCaller.rpc('lms_has_access'), asCaller.rpc('lms_is_teacher')]);
   if (!hasAccess && !isTeacher) return json({ error: 'To konto nie ma dostępu do kursu.' }, 403);
 
-  const request = parseRequest(await req.json().catch(() => null));
-  if (typeof request === 'string') return json({ error: request }, 400);
+  const parsed = parseRequest(await req.json().catch(() => null));
+  if (typeof parsed === 'string') return json({ error: parsed }, 400);
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
   const email = auth.user.email!.toLowerCase();
@@ -50,8 +50,20 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get(KEYS[provider]);
   if (!apiKey) return json({ error: `Brak klucza ${KEYS[provider]} w sekretach funkcji. Napisz do nauczyciela.` }, 500);
 
-  const call = buildCall(provider, model, apiKey, request);
-  const response = await fetch(call.url, { method: 'POST', headers: call.headers, body: JSON.stringify(call.body) });
+  const send = (r: typeof parsed) => {
+    const call = buildCall(provider, model, apiKey, r);
+    return fetch(call.url, { method: 'POST', headers: call.headers, body: JSON.stringify(call.body) });
+  };
+  const request = { ...parsed, effort: (settings.effort ?? undefined) as Effort | undefined };
+  let response = await send(request);
+  let dropped: string[] = [];
+  const retry = response.status === 400 ? withoutOptionalParams(request) : null;
+  if (retry) {
+    // the model does not take temperature (newer models) or effort (older ones): ask again without them
+    console.warn(provider, model, '400, retrying without', retry.dropped.join(', '), await response.text());
+    response = await send(retry.request);
+    dropped = retry.dropped;
+  }
   if (!response.ok) {
     console.error(provider, response.status, await response.text());
     const e = providerError(response.status);
@@ -80,6 +92,7 @@ Deno.serve(async (req) => {
     input_tokens: result.input_tokens,
     output_tokens: result.output_tokens,
     stop_reason: result.stop_reason,
+    dropped,
     cost_usd: cost,
     spent_usd: spent + cost,
     limit_usd: limit,

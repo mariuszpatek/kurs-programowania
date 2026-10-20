@@ -133,7 +133,7 @@ def _live_chat(messages, system=None, temperature=None, max_tokens=None):
     answer = json.loads(str(LLM_BACKEND(json.dumps(request, ensure_ascii=False))))
     if "error" in answer:
         raise ModelError(answer["error"])
-    _llm_calls.append({k: answer.get(k) for k in ("provider", "model", "input_tokens", "output_tokens", "cost_usd", "spent_usd", "limit_usd", "stop_reason")})
+    _llm_calls.append({k: answer.get(k) for k in ("provider", "model", "input_tokens", "output_tokens", "cost_usd", "spent_usd", "limit_usd", "stop_reason", "dropped")})
     return answer["text"]
 
 

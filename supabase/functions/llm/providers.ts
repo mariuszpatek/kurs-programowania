@@ -4,11 +4,15 @@
 
 export type Provider = 'anthropic' | 'openrouter';
 export type Message = { role: 'user' | 'assistant'; content: string };
-export type LlmRequest = { messages: Message[]; system?: string; temperature?: number; max_tokens: number };
+export type Effort = 'low' | 'medium' | 'high';
+/** `effort` comes from the dashboard settings, the rest from the student's ask() / chat(). */
+export type LlmRequest = { messages: Message[]; system?: string; temperature?: number; max_tokens: number; effort?: Effort };
 export type LlmResult = { text: string; input_tokens: number; output_tokens: number; stop_reason: string; cost_usd: number | null };
 export type Prices = { input_price_per_mtok: number; output_price_per_mtok: number };
 
-export const LIMITS = { messages: 40, chars: 24000, maxTokens: 1024 };
+// Newer models (e.g. Claude Haiku 5.5) think before answering and the thinking counts toward max_tokens,
+// so the default leaves room for it; a tiny max_tokens can end before any text.
+export const LIMITS = { messages: 40, chars: 24000, maxTokens: 4096, defaultMaxTokens: 1024 };
 
 /** Checks what came from the browser; returns an error message in Polish, or the cleaned request. */
 export function parseRequest(body: unknown): LlmRequest | string {
@@ -33,7 +37,7 @@ export function parseRequest(body: unknown): LlmRequest | string {
     temperature = Number(b.temperature);
     if (!(temperature >= 0 && temperature <= 1)) return 'temperature musi być liczbą od 0 do 1.';
   }
-  const requested = Number(b?.max_tokens ?? 400);
+  const requested = Number(b?.max_tokens ?? LIMITS.defaultMaxTokens);
   if (!(requested >= 1)) return 'max_tokens musi być liczbą dodatnią.';
   return { messages, system, temperature, max_tokens: Math.min(Math.floor(requested), LIMITS.maxTokens) };
 }
@@ -50,6 +54,7 @@ export function buildCall(provider: Provider, model: string, apiKey: string, req
         messages: req.messages,
         ...(req.system ? { system: req.system } : {}),
         ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+        ...(req.effort ? { output_config: { effort: req.effort } } : {}),
       },
     };
   }
@@ -61,9 +66,22 @@ export function buildCall(provider: Provider, model: string, apiKey: string, req
       max_tokens: req.max_tokens,
       messages: [...(req.system ? [{ role: 'system', content: req.system }] : []), ...req.messages],
       ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+      ...(req.effort ? { reasoning: { effort: req.effort } } : {}),
       usage: { include: true },
     },
   };
+}
+
+/**
+ * Newer models reject sampling parameters (Claude Haiku 5.5: any temperature other than 1) and older
+ * ones reject effort (Claude Haiku 4.5). After a 400 the call is repeated once without them; returns
+ * that request and what was dropped, or null when there is nothing to drop.
+ */
+export function withoutOptionalParams(req: LlmRequest): { request: LlmRequest; dropped: string[] } | null {
+  const dropped = [...(req.temperature !== undefined ? ['temperature'] : []), ...(req.effort ? ['effort'] : [])];
+  if (!dropped.length) return null;
+  const { temperature: _t, effort: _e, ...rest } = req;
+  return { request: rest, dropped };
 }
 
 /** The provider's JSON response in one shape. Throws when it has no text. */

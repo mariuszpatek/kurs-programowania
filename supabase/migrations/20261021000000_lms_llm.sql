@@ -12,11 +12,15 @@ alter table public.lms_courses add column if not exists position int not null de
 create table if not exists public.lms_llm_settings (
   id int primary key default 1 check (id = 1),
   provider text not null default 'anthropic' check (provider in ('anthropic', 'openrouter')),
-  anthropic_model text not null default 'claude-haiku-4-5',
-  openrouter_model text not null default 'anthropic/claude-haiku-4.5',
-  -- USD per million tokens; OpenRouter reports the real cost itself, these are the fallback
-  input_price_per_mtok numeric not null default 1,
-  output_price_per_mtok numeric not null default 5,
+  anthropic_model text not null default 'claude-haiku-5-5',
+  openrouter_model text not null default 'anthropic/claude-haiku-5.5',
+  -- how much newer models think before answering (thinking tokens are billed as output);
+  -- null: do not send (models without effort, e.g. Claude Haiku 4.5, reject it)
+  effort text default 'low' check (effort in ('low', 'medium', 'high')),
+  -- USD per million tokens (Claude Haiku 5.5 for prompts up to 100k tokens);
+  -- OpenRouter reports the real cost itself, these are the fallback
+  input_price_per_mtok numeric not null default 0.10,
+  output_price_per_mtok numeric not null default 0.50,
   student_monthly_limit_usd numeric not null default 1,
   teacher_monthly_limit_usd numeric not null default 10,
   updated_at timestamptz not null default now()

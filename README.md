@@ -121,7 +121,7 @@ Docstring testu to nazwa widoczna dla ucznia, a komunikat w `assert` to podpowie
 
 W kodzie ucznia są `ask(prompt, system=None, temperature=None, max_tokens=None)` i `chat(messages, ...)`, zwracają tekst odpowiedzi. Na stronie idą przez edge function `llm` (synchroniczne zapytanie z workera Pyodide, więc kod ucznia nie potrzebuje `async`); błąd (limit, dostawca, brak sieci) to wyjątek `ModelError`. Pod wynikiem widać model, liczbę zapytań i koszt. W testach zadań `ctx.fake_model` podmienia model, więc sprawdzanie nic nie kosztuje; w `sync-content` prawdziwego modelu nie ma.
 
-Panel → „Model AI”: dostawca (**Anthropic** albo **OpenRouter**, przełączany bez wdrażania), modele, ceny do liczenia kosztu (OpenRouter podaje koszt sam), limit miesięczny ucznia i nauczyciela, zużycie w tym miesiącu i limit dla konkretnej osoby. Każde wywołanie jest w `lms_llm_usage`; po przekroczeniu limitu funkcja odmawia przed wywołaniem dostawcy.
+Panel → „Model AI”: dostawca (**Anthropic** albo **OpenRouter**, przełączany bez wdrażania), modele (domyślnie Claude Haiku 5.5: `claude-haiku-5-5` / `anthropic/claude-haiku-5.5`), effort (ile model myśli przed odpowiedzią, domyślnie `low`), ceny do liczenia kosztu (OpenRouter podaje koszt sam), limit miesięczny ucznia i nauczyciela, zużycie w tym miesiącu i limit dla konkretnej osoby. Każde wywołanie jest w `lms_llm_usage`; po przekroczeniu limitu funkcja odmawia przed wywołaniem dostawcy. Nowsze modele nie przyjmują `temperature`, starsze `effort`: po błędzie 400 funkcja pyta jeszcze raz bez nich, a pod wynikiem widać, że temperatura została pominięta.
 
 ## Uczniowie
 

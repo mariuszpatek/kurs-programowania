@@ -11,5 +11,6 @@ export function modelUsageText(list: ModelCall[] | undefined): string {
   const last = list.at(-1)!;
   const cost = list.reduce((sum, c) => sum + Number(c.cost_usd), 0);
   const cut = list.some((c) => c.stop_reason === 'max_tokens') ? ' · odpowiedź ucięta przez max_tokens' : '';
-  return `Model ${last.model}: ${calls(list.length)}, ${usd(cost)} · w tym miesiącu ${usd(Number(last.spent_usd))} z ${usd(Number(last.limit_usd))}${cut}`;
+  const noTemperature = list.some((c) => c.dropped?.includes('temperature')) ? ' · temperature pominięta, ten model jej nie obsługuje' : '';
+  return `Model ${last.model}: ${calls(list.length)}, ${usd(cost)} · w tym miesiącu ${usd(Number(last.spent_usd))} z ${usd(Number(last.limit_usd))}${cut}${noTemperature}`;
 }
