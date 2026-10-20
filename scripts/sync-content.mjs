@@ -64,6 +64,26 @@ function checkNoteMarkers(lessons, teacherNotes) {
   return ok;
 }
 
+/** Every <!-- zadanie: N --> in a lesson must point at a task of that lesson (src/lib/task-checks.ts). */
+function checkTaskMarkers(lessons, tasks) {
+  let ok = true;
+  for (const lesson of lessons) {
+    const numbers = tasks.filter((t) => t.lesson_number === lesson.number).map((t) => t.number);
+    for (const [, list] of lesson.body_md.matchAll(/<!--\s*zadanie:\s*([^>]*?)\s*-->/g)) {
+      if (!/^\d+(\s*,\s*\d+)*$/.test(list)) {
+        console.error(`  ✗ lekcja ${lesson.number}: znacznik „zadanie: ${list}” powinien mieć numery zadań, np. <!-- zadanie: 3 --> albo <!-- zadanie: 3, 4 -->`);
+        ok = false;
+        continue;
+      }
+      for (const n of list.split(',').map((x) => Number(x.trim())).filter((n) => !numbers.includes(n))) {
+        console.error(`  ✗ lekcja ${lesson.number}: znacznik „zadanie: ${n}”, a lekcja nie ma zadania numer ${n}`);
+        ok = false;
+      }
+    }
+  }
+  return ok;
+}
+
 let courses;
 try {
   courses = dirs.map(loadCourse);
@@ -78,6 +98,7 @@ for (const { course, lessons, tasks, teacherNotes, unusedDrawings } of courses) 
   if (unusedDrawings.length) console.warn(`  ! rysunki, których nie ma w żadnej lekcji: ${unusedDrawings.join(', ')}`);
   ok = validate(course.language, tasks, lessons) && ok;
   ok = checkNoteMarkers(lessons, teacherNotes) && ok;
+  ok = checkTaskMarkers(lessons, tasks) && ok;
 }
 if (!ok) {
   console.error('Walidacja nie przeszła, nic nie zostało wgrane.');

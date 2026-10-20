@@ -71,6 +71,7 @@ import Layout from '../layouts/Layout.astro';
   import { languageById } from '../lib/languages';
   import { taskStatuses, type TaskStatus } from '../lib/progress';
   import { renderTaskList } from '../lib/task-list';
+  import { mountTaskChecks, taskChecksAsText } from '../lib/task-checks';
   import { param } from '../lib/url';
 
   const $ = (id: string) => document.getElementById(id)!;
@@ -90,7 +91,7 @@ import Layout from '../layouts/Layout.astro';
     return [
       `# ${course.title}: lekcja ${lesson.number}. ${lesson.title}`,
       `Tematy: ${lesson.topics.join(', ')}`,
-      drawingsAsText(stripTeacherMarkers(lesson.body_md)),
+      drawingsAsText(taskChecksAsText(stripTeacherMarkers(lesson.body_md), lessonTasks)),
       ...lessonTasks.map((t) =>
         [
           `## Zadanie ${t.number}: ${t.title}`,
@@ -177,7 +178,9 @@ import Layout from '../layouts/Layout.astro';
     const outline = splitIntoSections($('lesson-body'));
 
     const lessonTasks = (await tasks(course.id)).filter((t) => t.lesson_number === lesson.number);
-    if (lessonTasks.length) showTasks(course, lessonTasks, await taskStatuses(lessonTasks.map((t) => t.id)));
+    const statuses = lessonTasks.length ? await taskStatuses(lessonTasks.map((t) => t.id)) : new Map<string, TaskStatus>();
+    mountTaskChecks($('lesson-body'), course, lessonTasks, statuses);
+    if (lessonTasks.length) showTasks(course, lessonTasks, statuses);
     $('lesson-meta').textContent = `ok. ${minutes} min czytania · ${taskCount(lessonTasks.length)}`;
 
     if (course.tutor_prompt) {

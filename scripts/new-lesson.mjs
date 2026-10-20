@@ -57,6 +57,9 @@ NameError: name 'Print' is not defined
 <!-- Rysunek: plik lessons/img/nazwa.svg (generator: lessons/img/_rysunki.py), potem w osobnej linijce:
 ![Podpis pod rysunkiem](img/nazwa.svg) -->
 
+<!-- Na końcu działu: karta „Sprawdź się” z linkiem do zadania o tym, co właśnie było (numer zadania tej lekcji) -->
+<!-- zadanie: 1 -->
+
 ## Dla ciekawych
 
 Coś, czego nie było na lekcji, a uczeń może odkryć sam.
