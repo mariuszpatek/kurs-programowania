@@ -122,20 +122,20 @@ Przy każdym uczniu jest „Historia wejść”: kiedy był na platformie i co o
 
 ## Supabase
 
-Projekt współdzielony z Co Zabrać (`CoZabracMobile`), dlatego wszystko ma prefiks `lms_`. Migrację `supabase/migrations/…_lms_init.sql` uruchamia się ręcznie w SQL Editorze, nie przez `supabase db push` (historia migracji należy do Co Zabrać). Nauczyciela dopisuje się raz:
+Projekt Supabase może być współdzielony z inną aplikacją, dlatego wszystko ma prefiks `lms_`. Migracje z `supabase/migrations/` uruchamia się ręcznie w SQL Editorze, po kolei, nie przez `supabase db push` (historią migracji projektu zarządza tamta aplikacja). Nauczyciela dopisuje się raz:
 
 ```sql
 insert into public.lms_teachers (email) values ('twoj@email');
 ```
 
-W Authentication → URL Configuration → Redirect URLs muszą być `https://mariuszpatek.github.io/kurs-programowania/**` i `http://localhost:4321/**`.
+W Authentication → URL Configuration → Redirect URLs musi być adres strony z `/**` na końcu i `http://localhost:4321/**`.
 
 Edge functions:
 
 ```
-supabase functions deploy lms-invite --project-ref egwhzrxgbbmjdnwphmfj
-supabase functions deploy assistant --project-ref egwhzrxgbbmjdnwphmfj   # asystent AI, opcjonalnie
-supabase secrets set OPENROUTER_API_KEY=... --project-ref egwhzrxgbbmjdnwphmfj
+supabase functions deploy lms-invite --project-ref <project-ref>
+supabase functions deploy assistant --project-ref <project-ref>   # asystent AI, opcjonalnie
+supabase secrets set OPENROUTER_API_KEY=... --project-ref <project-ref>
 ```
 
 Asystent pokazuje się dopiero przy `PUBLIC_ASSISTANT=1`. Sekrety opcjonalne: `ASSISTANT_MODEL` (domyślnie `anthropic/claude-haiku-4.5`), `ASSISTANT_DAILY_LIMIT` (domyślnie 40).
@@ -145,7 +145,7 @@ Asystent pokazuje się dopiero przy `PUBLIC_ASSISTANT=1`. Sekrety opcjonalne: `A
 `.env` (nie trafia do gita):
 
 ```
-PUBLIC_SUPABASE_URL=https://egwhzrxgbbmjdnwphmfj.supabase.co
+PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...      # tylko dla sync-content
 ```

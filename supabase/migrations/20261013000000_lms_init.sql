@@ -1,7 +1,7 @@
--- Programming course platform (LMS) living in the Supabase project shared with the Co Zabrać app.
--- Every object has the lms_ prefix. auth.users also contains Co Zabrać users, so access is granted
+-- Programming course platform (LMS) living in a Supabase project shared with another app.
+-- Every object has the lms_ prefix. auth.users also contains that app's users, so access is granted
 -- only to emails listed in lms_teachers or lms_enrollments.
--- Run once in the SQL Editor (not via `supabase db push`: the migration history belongs to Co Zabrać).
+-- Run once in the SQL Editor (not via `supabase db push`: the migration history belongs to the other app).
 
 -- ---------------------------------------------------------------- people
 

@@ -1,9 +1,9 @@
 // Creates a passwordless auth account for a student the teacher enrolls.
 // The login page uses shouldCreateUser: false, so nobody else can create accounts
-// in this auth pool (it is shared with the Co Zabrać app).
+// in this auth pool (it is shared with another app).
 //
 // With { email, password } it sets the password of an enrolled student instead, for when the
-// login link does not arrive. Only accounts enrolled in a course: the pool is shared with Co Zabrać,
+// login link does not arrive. Only accounts enrolled in a course: the pool is shared with another app,
 // so this would also change the password a student uses there.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
   }
 
   const { error } = await admin.auth.admin.createUser({ email, email_confirm: true });
-  // An existing account (e.g. a Co Zabrać user) is fine: the enrollment alone grants access.
+  // An existing account (e.g. a user of the other app) is fine: the enrollment alone grants access.
   if (error && !/already|exists|registered/i.test(error.message)) {
     console.error('createUser', error);
     return json({ error: 'Nie udało się założyć konta.' }, 500);
