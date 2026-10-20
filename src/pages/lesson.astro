@@ -73,6 +73,7 @@ import Layout from '../layouts/Layout.astro';
   import { renderTaskList } from '../lib/task-list';
   import { mountTaskChecks, taskChecksAsText } from '../lib/task-checks';
   import { param } from '../lib/url';
+  import { recordVisit } from '../lib/visits';
 
   const $ = (id: string) => document.getElementById(id)!;
   const el = (tag: string, text = '', className = '') => {
@@ -140,6 +141,7 @@ import Layout from '../layouts/Layout.astro';
       $('lesson-body').replaceChildren(el('p', 'Ta lekcja nie istnieje albo nie jest jeszcze odblokowana.', 'muted'));
       return;
     }
+    recordVisit(access, { courseId: course.id, lessonNumber: lesson.number });
     document.title = `${lesson.title} · Kurs programowania`;
     ($('back') as HTMLAnchorElement).href = coursePath(course);
     $('back').textContent = `← ${course.title}`;

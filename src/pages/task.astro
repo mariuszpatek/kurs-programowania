@@ -39,6 +39,7 @@ import Assistant from '../components/Assistant.astro';
 </Layout>
 
 <script>
+  import { recordVisit } from '../lib/visits';
   import { requireAccess, courseBySlug, lessons, tasks, taskNote, lessonPath, lessonTasksPath, taskPath, topicsUpTo } from '../lib/content';
   import { renderMarkdown, enhanceContent } from '../lib/markdown';
   import { mountWorkspace } from '../lib/workspace';
@@ -63,6 +64,7 @@ import { param } from '../lib/url';
     const courseLessons = await lessons(course.id);
     const lesson = courseLessons.find((l) => l.number === task.lesson_number);
 
+    recordVisit(access, { courseId: course.id, lessonNumber: task.lesson_number, taskId: task.id });
     document.title = `${task.title} · Kurs programowania`;
     ($('back') as HTMLAnchorElement).href = lessonTasksPath(course, task.lesson_number);
     $('back').textContent = `← Zadania z lekcji ${task.lesson_number}`;

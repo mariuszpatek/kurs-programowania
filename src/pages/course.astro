@@ -12,6 +12,7 @@ import { url } from '../lib/url';
 </Layout>
 
 <script>
+  import { recordVisit } from '../lib/visits';
   import { requireAccess, courseBySlug, lessons, tasks, lessonPath, courseLabel } from '../lib/content';
   import { taskStatuses } from '../lib/progress';
   import { renderTaskList } from '../lib/task-list';
@@ -32,6 +33,7 @@ import { url } from '../lib/url';
       list.replaceChildren(el('p', 'Nie znaleziono kursu albo nie masz do niego dostępu.', 'muted'));
       return;
     }
+    recordVisit(access, { courseId: course.id });
     document.title = `${course.title} · Kurs programowania`;
     document.getElementById('course-meta')!.textContent = courseLabel(course);
     document.getElementById('course-title')!.textContent = course.title;

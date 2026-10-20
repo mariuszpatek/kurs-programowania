@@ -118,6 +118,8 @@ Docstring testu to nazwa widoczna dla ucznia, a komunikat w `assert` to podpowie
 
 Panel `/teacher/` → „Dodaj ucznia”: e-mail, kurs i numer lekcji, do której ma dostęp. Przyciski −/+ przy uczniu odblokowują kolejne lekcje. Konto zakłada edge function `lms-invite`.
 
+Przy każdym uczniu jest „Historia wejść”: kiedy był na platformie i co otwierał, zgrupowane w sesje (przerwa ponad 30 min to nowa sesja), razem z próbami zadań. Strony kursu, lekcji i zadania zapisują wejście w `lms_visits` (to samo otwarcie w ciągu 10 min liczy się raz). Wejścia nauczyciela nie są zapisywane.
+
 ## Supabase
 
 Projekt współdzielony z Co Zabrać (`CoZabracMobile`), dlatego wszystko ma prefiks `lms_`. Migrację `supabase/migrations/…_lms_init.sql` uruchamia się ręcznie w SQL Editorze, nie przez `supabase db push` (historia migracji należy do Co Zabrać). Nauczyciela dopisuje się raz:

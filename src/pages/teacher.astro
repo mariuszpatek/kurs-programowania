@@ -50,6 +50,7 @@ import Layout from '../layouts/Layout.astro';
   type TestResult = { name: string; ok: boolean };
   type PredictLine = { student: string | null; actual: string | null; ok: boolean };
   type Attempt = { email: string; task_id: string; code: string; passed: boolean; results: unknown; created_at: string };
+  type Visit = { email: string; course_id: string; lesson_number: number | null; task_id: string | null; created_at: string };
   type CourseData = { course: Course; lessonCount: number; lessons: Lesson[]; tasks: Task[]; notes: Map<number, string> };
 
   const $ = (id: string) => document.getElementById(id)!;
@@ -64,6 +65,8 @@ import Layout from '../layouts/Layout.astro';
 
   let courseData = new Map<string, CourseData>();
   let attempts: Attempt[] = [];
+  /** Null when the lms_visits migration has not been run yet. */
+  let visits: Visit[] | null = null;
   /** How many hints each student opened per task: "email|task_id" -> count. */
   let hintsOpened = new Map<string, number>();
 
@@ -104,6 +107,69 @@ import Layout from '../layouts/Layout.astro';
     return ol;
   }
 
+  /** A visit or an attempt, both say "the student was here". */
+  type Activity = { at: number; lesson: number | null; task: Task | null; attempt: Attempt | null };
+  /** A gap this long between two activities starts a new session. */
+  const SESSION_GAP_MS = 30 * 60 * 1000;
+  const day = (t: number) => new Date(t).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' });
+  const time = (t: number) => new Date(t).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+
+  function sessions(myVisits: Visit[], myAttempts: Attempt[], data: CourseData): Activity[][] {
+    const taskById = new Map(data.tasks.map((t) => [t.id, t]));
+    const activity: Activity[] = [
+      ...myVisits.map((v) => ({ at: Date.parse(v.created_at), lesson: v.lesson_number, task: (v.task_id && taskById.get(v.task_id)) || null, attempt: null })),
+      ...myAttempts.map((a) => {
+        const task = taskById.get(a.task_id) ?? null;
+        return { at: Date.parse(a.created_at), lesson: task?.lesson_number ?? null, task, attempt: a };
+      }),
+    ].sort((a, b) => a.at - b.at);
+    const result: Activity[][] = [];
+    for (const a of activity) {
+      const current = result.at(-1);
+      if (current && a.at - current.at(-1)!.at < SESSION_GAP_MS) current.push(a);
+      else result.push([a]);
+    }
+    return result.reverse();
+  }
+
+  /** "Lekcja 2 · zadanie 2.3: 2 próby, zaliczone · zadanie 2.4: otwarte" */
+  function sessionSummary(list: Activity[]): string {
+    const parts: string[] = [];
+    const lessonsSeen = [...new Set(list.filter((a) => !a.task && a.lesson !== null).map((a) => a.lesson))];
+    if (lessonsSeen.length) parts.push(`${lessonsSeen.length === 1 ? 'lekcja' : 'lekcje'} ${lessonsSeen.join(', ')}`);
+    const tasksSeen = [...new Map(list.filter((a) => a.task).map((a) => [a.task!.id, a.task!])).values()];
+    for (const t of tasksSeen) {
+      const tries = list.filter((a) => a.attempt && a.task?.id === t.id);
+      const passed = tries.some((a) => a.attempt!.passed);
+      const what = tries.length ? `${tries.length} ${plural(tries.length)}${passed ? ', zaliczone' : ''}` : 'otwarte';
+      parts.push(`zadanie ${t.lesson_number}.${t.number}: ${what}`);
+    }
+    return parts.join(' · ') || 'strona kursu';
+  }
+
+  function visitHistory(myVisits: Visit[], myAttempts: Attempt[], data: CourseData) {
+    const box = el('details', '', 'visit-history');
+    const list = sessions(myVisits, myAttempts, data);
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const thisWeek = list.filter((s) => s[0].at > weekAgo).length;
+    box.append(el('summary', list.length ? `Historia wejść · ${thisWeek} w ostatnim tygodniu` : 'Historia wejść · jeszcze nie był na platformie'));
+    const ol = el('ol', '', 'sessions');
+    for (const s of list) {
+      const start = s[0].at;
+      const end = s.at(-1)!.at;
+      const minutes = Math.round((end - start) / 60000);
+      const li = el('li');
+      li.append(
+        el('span', day(start), 'session-day'),
+        el('span', end - start >= 60000 ? `${time(start)}–${time(end)} (${minutes} min)` : time(start), 'session-time'),
+        el('span', sessionSummary(s), 'session-what'),
+      );
+      ol.append(li);
+    }
+    if (list.length) box.append(ol);
+    return box;
+  }
+
   /** Two clicks instead of confirm(): the first arms the button, a second within 3 s runs the action. */
   function confirmButton(label: string, armedLabel: string, action: () => Promise<void>) {
     const button = el('button', label, 'ghost');
@@ -141,13 +207,14 @@ import Layout from '../layouts/Layout.astro';
     if (!data) return card;
     const mine = attempts.filter((a) => a.email === e.email && data.tasks.some((t) => t.id === a.task_id));
     const done = data.tasks.filter((t) => mine.some((a) => a.task_id === t.id && a.passed)).length;
-    const last = mine[0];
+    const myVisits = visits?.filter((v) => v.email === e.email && v.course_id === e.course_id) ?? [];
+    const lastSeen = Math.max(0, ...[...mine, ...myVisits].map((a) => Date.parse(a.created_at)));
 
     const head = el('header');
     const who = el('div');
     who.append(
       el('h2', e.email),
-      el('p', `${data.course.title} · ${last ? `ostatnio ${when(last.created_at)}` : 'jeszcze nic nie sprawdzał'}`, 'muted'),
+      el('p', `${data.course.title} · ${lastSeen ? `ostatnio ${when(new Date(lastSeen).toISOString())}` : 'jeszcze nie był na platformie'}`, 'muted'),
     );
 
     const unlock = el('div', '', 'unlock');
@@ -170,6 +237,7 @@ import Layout from '../layouts/Layout.astro';
     score.append(el('strong', `${done}/${data.tasks.filter((t) => t.lesson_number <= e.unlocked_through).length}`), el('span', 'zaliczonych', 'muted'));
     head.append(who, unlock, score);
     card.append(head);
+    if (visits) card.append(visitHistory(myVisits, mine, data));
 
     for (const t of data.tasks) {
       const list = mine.filter((a) => a.task_id === t.id);
@@ -299,11 +367,13 @@ import Layout from '../layouts/Layout.astro';
   }
 
   async function load() {
-    const [{ data: enrollments }, { data: rawAttempts, error }, { data: hintViews }] = await Promise.all([
+    const [{ data: enrollments }, { data: rawAttempts, error }, { data: hintViews }, { data: rawVisits, error: visitsError }] = await Promise.all([
       supabase.from('lms_enrollments').select('email, course_id, unlocked_through').order('created_at'),
       supabase.rpc('lms_teacher_attempts'),
       supabase.rpc('lms_teacher_hint_views'),
+      supabase.rpc('lms_teacher_visits'),
     ]);
+    visits = visitsError ? null : ((rawVisits ?? []) as Visit[]);
     hintsOpened = new Map(((hintViews ?? []) as { email: string; task_id: string; opened: number }[]).map((h) => [`${h.email}|${h.task_id}`, h.opened]));
     if (error) {
       alertInline(`Brak dostępu do panelu: ${error.message}`);
@@ -557,6 +627,50 @@ import Layout from '../layouts/Layout.astro';
   }
   .students :global(.task-row) {
     border-top: 1px solid var(--line);
+  }
+  .students :global(.visit-history) {
+    border-top: 1px solid var(--line);
+  }
+  .students :global(.visit-history > summary) {
+    padding: 12px 0;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+  .students :global(.sessions) {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .students :global(.sessions li) {
+    display: grid;
+    grid-template-columns: 110px 150px 1fr;
+    gap: 4px 12px;
+    margin: 0;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .students :global(.session-day) {
+    font-weight: 500;
+  }
+  .students :global(.session-time) {
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .students :global(.session-what) {
+    color: var(--text-2);
+  }
+  @media (max-width: 640px) {
+    .students :global(.sessions li) {
+      grid-template-columns: auto 1fr;
+    }
+    .students :global(.session-what) {
+      grid-column: 1 / -1;
+    }
   }
   .students :global(.task-row.locked) {
     opacity: 0.5;
