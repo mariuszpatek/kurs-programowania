@@ -111,6 +111,8 @@ Wzorcowe rozwiązanie musi przejść wszystkie testy, a każde `bad-*` oblać pr
 | `ctx.run("Ola\n16\n")` | uruchomienie z danymi dla `input()`; zwraca wynik z `.lines` i `.variables` |
 | `ctx.code`, `ctx.code_lines` | kod ucznia (linie bez pustych i komentarzy) |
 | `expect_line(ctx, 1, "Mam 16 lat", stdin="")` | porównanie linijki z czytelnym komunikatem |
+| `ctx.function("count_pairs")` | funkcja ucznia; brak funkcji to porażka z komunikatem „Nie ma funkcji …” |
+| `ctx.call("count_pairs", words)` | wywołanie funkcji ucznia; wyjątek to porażka z treścią wywołania, wypisany tekst jest pomijany |
 
 Docstring testu to nazwa widoczna dla ucznia, a komunikat w `assert` to podpowiedź po porażce (po polsku). `input()` wypisuje zachętę i wpisaną wartość, tak jak terminal.
 

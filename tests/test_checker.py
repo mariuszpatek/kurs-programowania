@@ -74,6 +74,33 @@ class Check(unittest.TestCase):
         self.assertTrue(all("SyntaxError" in t["message"] for t in r["tests"]))
 
 
+FUNCTION_TESTS = '''
+def test_double(ctx):
+    """double() podwaja liczbę"""
+    assert ctx.call("double", 4) == 8
+
+def test_missing(ctx):
+    ctx.function("triple")
+'''
+
+
+class Functions(unittest.TestCase):
+    def test_call_and_missing_function(self):
+        r = checker.check("def double(x):\n    print('liczę')\n    return x * 2\n", FUNCTION_TESTS)
+        self.assertEqual([t["ok"] for t in r["tests"]], [True, False])
+        self.assertIn("Nie ma funkcji triple()", r["tests"][1]["message"])
+        self.assertEqual(r["run"]["output"], "")
+
+    def test_exception_names_the_call(self):
+        r = checker.check("def double(x):\n    return x + y\n", FUNCTION_TESTS)
+        self.assertIn("double(4) zakończyła się błędem: NameError", r["tests"][0]["message"])
+
+    def test_imported_functions_are_not_the_students(self):
+        r = checker.run("from math import sqrt\ndef f():\n    return 1\n")
+        self.assertEqual(list(r.functions), ["f"])
+        self.assertNotIn("f", r.variables)
+
+
 class Predict(unittest.TestCase):
     CODE = 'a = "5"\nprint(a + a)\nprint(5 + 5)\n'
 

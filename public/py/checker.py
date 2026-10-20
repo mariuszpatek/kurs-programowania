@@ -95,11 +95,21 @@ def _user_variables(namespace):
     }
 
 
+def _user_functions(namespace):
+    """Functions defined in the student's code (not imported ones)."""
+    return {
+        name: value
+        for name, value in namespace.items()
+        if isinstance(value, types.FunctionType) and value.__code__.co_filename == STUDENT_FILE
+    }
+
+
 class RunResult:
-    def __init__(self, output, error, variables):
+    def __init__(self, output, error, variables, functions=None):
         self.output = output
         self.error = error
         self.variables = variables
+        self.functions = functions or {}
 
     @property
     def lines(self):
@@ -143,7 +153,7 @@ def run(code, stdin=""):
             error = _describe_error(exc, code)
     finally:
         sys.stdout = real_stdout
-    return RunResult(out.getvalue(), error, _user_variables(namespace))
+    return RunResult(out.getvalue(), error, _user_variables(namespace), _user_functions(namespace))
 
 
 class Context:
@@ -179,6 +189,29 @@ class Context:
     def code_lines(self):
         """Non-empty, non-comment lines of the student's code."""
         return [l for l in self.code.splitlines() if l.strip() and not l.strip().startswith("#")]
+
+    def function(self, name):
+        """The student's function `name`; a missing one fails the test with a readable message."""
+        fn = self.result.functions.get(name)
+        if fn is None:
+            raise AssertionError(f"Nie ma funkcji {name}(). Sprawdź nazwę po def.")
+        return fn
+
+    def call(self, name, *args, **kwargs):
+        """Calls the student's function. What it prints is discarded; an exception fails the test
+        with the call that caused it, e.g. „count_pairs(['a']) zakończyła się błędem: KeyError: 'a'”."""
+        fn = self.function(name)
+        shown = ", ".join([*map(repr, args), *(f"{k}={v!r}" for k, v in kwargs.items())])
+        if len(shown) > 80:
+            shown = shown[:77] + "..."
+        real_stdout = sys.stdout
+        sys.stdout = _Output()
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - student code may raise anything
+            raise AssertionError(f"{name}({shown}) zakończyła się błędem: {type(exc).__name__}: {exc}") from None
+        finally:
+            sys.stdout = real_stdout
 
 
 def _same_line(expected, actual):
