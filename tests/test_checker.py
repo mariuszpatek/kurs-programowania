@@ -4,6 +4,7 @@ Run: py -m unittest discover tests
 Course content (tasks, tests, solutions) is validated separately by scripts/validate_python.py.
 """
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -99,6 +100,67 @@ class Functions(unittest.TestCase):
         r = checker.run("from math import sqrt\ndef f():\n    return 1\n")
         self.assertEqual(list(r.functions), ["f"])
         self.assertNotIn("f", r.variables)
+
+
+MODEL_TESTS = '''
+def test_asks_twice(ctx):
+    """Pyta model drugi raz po złej odpowiedzi"""
+    model = ctx.fake_model(["nie wiem", "5"])
+    assert ctx.call("rate", "Świetny film") == 5
+    assert len(model.calls) == 2
+    assert "Świetny film" in model.prompts[0]
+    assert model.calls[0]["system"] == "Odpowiadaj liczbą"
+'''
+
+RATE = """
+def rate(review):
+    for attempt in range(2):
+        answer = ask(f"Oceń od 1 do 5: {review}", system="Odpowiadaj liczbą")
+        if answer.isdigit():
+            return int(answer)
+    return None
+"""
+
+
+class Model(unittest.TestCase):
+    def tearDown(self):
+        checker.LLM_BACKEND = None
+
+    def test_fake_model_in_tests(self):
+        r = checker.check(RATE, MODEL_TESTS)
+        self.assertTrue(r["passed"], r["tests"])
+
+    def test_fake_model_runs_out_of_answers(self):
+        r = checker.check(RATE.replace("range(2)", "range(3)"), MODEL_TESTS.replace('["nie wiem", "5"]', '["nie wiem"]'))
+        self.assertIn("Udawany model nie ma już odpowiedzi", r["tests"][0]["message"])
+
+    def test_without_backend_the_real_model_is_unavailable(self):
+        r = checker.run('print(ask("Cześć"))')
+        self.assertEqual(r.error["type"], "ModelError")
+
+    def test_backend_gets_json_and_usage_is_reported(self):
+        seen = []
+
+        def backend(request):
+            seen.append(json.loads(request))
+            return json.dumps({"text": "Ahoj", "provider": "anthropic", "model": "m", "input_tokens": 3, "output_tokens": 1, "cost_usd": 0.0001})
+
+        checker.LLM_BACKEND = backend
+        r = checker.run('print(chat([{"role": "user", "content": "Hej"}], temperature=0))')
+        self.assertEqual(r.output, "Ahoj\n")
+        self.assertEqual(seen[0]["messages"], [{"role": "user", "content": "Hej"}])
+        self.assertEqual(seen[0]["temperature"], 0)
+        self.assertEqual(r.to_dict()["llm"][0]["cost_usd"], 0.0001)
+
+    def test_backend_error_becomes_model_error(self):
+        checker.LLM_BACKEND = lambda request: json.dumps({"error": "Wykorzystano miesięczny limit"})
+        r = checker.run('ask("Hej")')
+        self.assertEqual(r.error["type"], "ModelError")
+        self.assertIn("limit", r.error["message"])
+
+    def test_bad_messages(self):
+        r = checker.run('chat([{"role": "system", "content": "x"}])')
+        self.assertEqual(r.error["type"], "TypeError")
 
 
 class Predict(unittest.TestCase):

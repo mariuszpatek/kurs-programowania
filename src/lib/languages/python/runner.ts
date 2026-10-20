@@ -1,7 +1,17 @@
 import { url } from '../../url';
+import { supabase } from '../../supabase';
 import { TimedOut, type CheckResult, type PredictResult, type RunResult, type Runner, type TraceResult } from '../types';
 
 const TIME_LIMIT_MS = { run: 5000, check: 15000, predict: 5000, trace: 5000 };
+/** Code that talks to the language model waits for its answers, so it gets more time. */
+const MODEL_TIME_LIMIT_MS = 120_000;
+const usesModel = (code: string) => /\b(ask|chat)\s*\(/.test(code);
+
+async function modelAuth() {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { url: import.meta.env.PUBLIC_SUPABASE_URL, anonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, token } : undefined;
+}
 
 let worker: Worker | null = null;
 let booting: Promise<void> | null = null;
@@ -35,6 +45,8 @@ function preparePython(): Promise<void> {
 
 async function send<T>(kind: keyof typeof TIME_LIMIT_MS, payload: Record<string, string>): Promise<T> {
   await preparePython();
+  const live = kind !== 'predict' && usesModel(payload.code);
+  const auth = live ? await modelAuth() : undefined;
   const id = ++nextId;
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -44,12 +56,12 @@ async function send<T>(kind: keyof typeof TIME_LIMIT_MS, payload: Record<string,
       booting = null;
       preparePython();
       reject(new TimedOut());
-    }, TIME_LIMIT_MS[kind]);
+    }, live ? MODEL_TIME_LIMIT_MS : TIME_LIMIT_MS[kind]);
     pending.set(id, {
       resolve: (r) => (clearTimeout(timer), resolve(r)),
       reject: (e) => (clearTimeout(timer), reject(e)),
     });
-    worker!.postMessage({ id, kind, ...payload });
+    worker!.postMessage({ id, kind, ...payload, auth });
   });
 }
 

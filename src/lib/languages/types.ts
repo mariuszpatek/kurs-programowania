@@ -1,7 +1,9 @@
 import type { Extension } from '@codemirror/state';
 
 export type CodeError = { type: string; message: string; line: number | null; line_text: string | null; hint: string | null };
-export type RunResult = { output: string; error: CodeError | null };
+/** One ask() / chat() call to the real model during a run (cost in USD). */
+export type ModelCall = { provider: string; model: string; input_tokens: number; output_tokens: number; cost_usd: number; spent_usd: number; limit_usd: number; stop_reason: string };
+export type RunResult = { output: string; error: CodeError | null; llm?: ModelCall[] };
 export type TestResult = { name: string; ok: boolean; message: string | null };
 export type CheckResult = { passed: boolean; tests: TestResult[]; run: RunResult | null };
 export type PredictLine = { student: string | null; actual: string | null; ok: boolean };

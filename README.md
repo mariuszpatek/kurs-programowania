@@ -113,8 +113,15 @@ Wzorcowe rozwiązanie musi przejść wszystkie testy, a każde `bad-*` oblać pr
 | `expect_line(ctx, 1, "Mam 16 lat", stdin="")` | porównanie linijki z czytelnym komunikatem |
 | `ctx.function("count_pairs")` | funkcja ucznia; brak funkcji to porażka z komunikatem „Nie ma funkcji …” |
 | `ctx.call("count_pairs", words)` | wywołanie funkcji ucznia; wyjątek to porażka z treścią wywołania, wypisany tekst jest pomijany |
+| `model = ctx.fake_model(["odp. 1", "odp. 2"])` | udawany model: `ask()` / `chat()` w kodzie ucznia dostają te odpowiedzi po kolei (albo funkcję wiadomości); `model.calls`, `model.prompts` to, o co pytano |
 
 Docstring testu to nazwa widoczna dla ucznia, a komunikat w `assert` to podpowiedź po porażce (po polsku). `input()` wypisuje zachętę i wpisaną wartość, tak jak terminal.
+
+## Model językowy w zadaniach
+
+W kodzie ucznia są `ask(prompt, system=None, temperature=None, max_tokens=None)` i `chat(messages, ...)`, zwracają tekst odpowiedzi. Na stronie idą przez edge function `llm` (synchroniczne zapytanie z workera Pyodide, więc kod ucznia nie potrzebuje `async`); błąd (limit, dostawca, brak sieci) to wyjątek `ModelError`. Pod wynikiem widać model, liczbę zapytań i koszt. W testach zadań `ctx.fake_model` podmienia model, więc sprawdzanie nic nie kosztuje; w `sync-content` prawdziwego modelu nie ma.
+
+Panel → „Model AI”: dostawca (**Anthropic** albo **OpenRouter**, przełączany bez wdrażania), modele, ceny do liczenia kosztu (OpenRouter podaje koszt sam), limit miesięczny ucznia i nauczyciela, zużycie w tym miesiącu i limit dla konkretnej osoby. Każde wywołanie jest w `lms_llm_usage`; po przekroczeniu limitu funkcja odmawia przed wywołaniem dostawcy.
 
 ## Uczniowie
 
@@ -136,6 +143,8 @@ Edge functions:
 
 ```
 supabase functions deploy lms-invite --project-ref <project-ref>
+supabase functions deploy llm --project-ref <project-ref>         # model dla ask() / chat()
+supabase secrets set ANTHROPIC_API_KEY=... OPENROUTER_API_KEY=... --project-ref <project-ref>
 supabase functions deploy assistant --project-ref <project-ref>   # asystent AI, opcjonalnie
 supabase secrets set OPENROUTER_API_KEY=... --project-ref <project-ref>
 ```

@@ -131,6 +131,8 @@ for (const { course, lessons, tasks, teacherNotes } of courses) {
         level: course.level ?? '',
         description: course.description ?? '',
         tutor_prompt: course.tutor_prompt,
+        // order in the learning path; needs the lms_llm migration (column lms_courses.position)
+        ...(course.position !== undefined ? { position: course.position } : {}),
       },
       { onConflict: 'slug' },
     )

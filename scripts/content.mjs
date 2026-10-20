@@ -1,7 +1,7 @@
 // Reading course folders, shared by sync-content.mjs, new-course.mjs and new-lesson.mjs.
 //
 // <content root>/                     default ../korepetycje_python/platforma (or CONTENT_DIR in .env)
-//   <course>/course.yaml              slug, title, language, level, description
+//   <course>/course.yaml              slug, title, language, level, description, position? (step in the learning path)
 //   <course>/tutor-prompt.md          AI tutor prompt; {{topics}} = topics of lessons so far
 //   <course>/lessons/01.md            frontmatter: number, title, topics
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional

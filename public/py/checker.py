@@ -8,6 +8,7 @@ Student-facing messages are in Polish.
 import ast
 import builtins
 import io
+import json
 import re
 import sys
 import traceback
@@ -104,22 +105,91 @@ def _user_functions(namespace):
     }
 
 
+# ---------------------------------------------------------------- language model
+# ask() / chat() in student code. In the browser the worker sets LLM_BACKEND to a function that takes
+# the request as JSON and returns the JSON answer of the `llm` edge function (Anthropic or OpenRouter,
+# whichever the teacher picked). Task tests swap in a FakeModel (ctx.fake_model), so they cost nothing
+# and always give the same answer; locally (CPython, sync-content) there is no real model at all.
+LLM_BACKEND = None
+_llm_calls = []
+
+
+class ModelError(Exception):
+    """The model could not answer: limit, provider error, no connection."""
+
+
+def _check_messages(messages):
+    if not isinstance(messages, list) or not messages:
+        raise TypeError("chat() potrzebuje niepustej listy wiadomości, np. [{\"role\": \"user\", \"content\": \"Cześć\"}]")
+    for i, m in enumerate(messages, 1):
+        if not isinstance(m, dict) or m.get("role") not in ("user", "assistant") or not isinstance(m.get("content"), str):
+            raise TypeError(f"Wiadomość {i} musi być słownikiem z kluczami \"role\" (\"user\" albo \"assistant\") i \"content\" (tekst).")
+
+
+def _live_chat(messages, system=None, temperature=None, max_tokens=None):
+    if LLM_BACKEND is None:
+        raise ModelError("Prawdziwy model działa tylko na stronie kursu.")
+    request = {"messages": messages, "system": system, "temperature": temperature, "max_tokens": max_tokens}
+    answer = json.loads(str(LLM_BACKEND(json.dumps(request, ensure_ascii=False))))
+    if "error" in answer:
+        raise ModelError(answer["error"])
+    _llm_calls.append({k: answer.get(k) for k in ("provider", "model", "input_tokens", "output_tokens", "cost_usd", "spent_usd", "limit_usd", "stop_reason")})
+    return answer["text"]
+
+
+class FakeModel:
+    """A model for tests: gives the prepared answers in order and remembers what it was asked.
+    An answer can be a function of the messages, e.g. lambda messages: messages[-1]["content"].upper()."""
+
+    def __init__(self, answers):
+        self.answers = list(answers)
+        self.calls = []
+
+    def chat(self, messages, system=None, temperature=None, max_tokens=None):
+        self.calls.append({"messages": [dict(m) for m in messages], "system": system, "temperature": temperature, "max_tokens": max_tokens})
+        if not self.answers:
+            raise ModelError(f"Udawany model nie ma już odpowiedzi (to {len(self.calls)}. zapytanie). Czy program nie pyta modelu za często?")
+        answer = self.answers.pop(0)
+        return answer(messages) if callable(answer) else answer
+
+    @property
+    def prompts(self):
+        """The last user message of every call."""
+        return [next((m["content"] for m in reversed(c["messages"]) if m["role"] == "user"), "") for c in self.calls]
+
+
+def _model_functions(chat_with):
+    def chat(messages, system=None, temperature=None, max_tokens=None):
+        _check_messages(messages)
+        return chat_with(messages, system=system, temperature=temperature, max_tokens=max_tokens)
+
+    def ask(prompt, system=None, temperature=None, max_tokens=None):
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise TypeError("ask() potrzebuje niepustego tekstu, np. ask(\"Opisz kota\")")
+        return chat([{"role": "user", "content": prompt}], system=system, temperature=temperature, max_tokens=max_tokens)
+
+    return {"ask": ask, "chat": chat, "ModelError": ModelError}
+
+
 class RunResult:
-    def __init__(self, output, error, variables, functions=None):
+    def __init__(self, output, error, variables, functions=None, builtins_=None, llm=None):
         self.output = output
         self.error = error
         self.variables = variables
         self.functions = functions or {}
+        # the student's builtins: a fake model installed later reaches functions defined in this run
+        self.builtins = builtins_ if builtins_ is not None else {}
+        self.llm = llm or []
 
     @property
     def lines(self):
         return [l.rstrip() for l in self.output.rstrip("\n").split("\n")] if self.output.strip() else []
 
     def to_dict(self):
-        return {"output": self.output, "error": self.error}
+        return {"output": self.output, "error": self.error, "llm": self.llm}
 
 
-def _student_namespace(stdin, out):
+def _student_namespace(stdin, out, model=None):
     """Globals for student code: input() reads consecutive lines from `stdin` and echoes them like a terminal."""
     pending = stdin.split("\n") if stdin else []
     if pending and pending[-1] == "":
@@ -133,13 +203,17 @@ def _student_namespace(stdin, out):
         out.write(value + "\n")
         return value
 
-    return {"__name__": "__main__", "__builtins__": dict(vars(builtins), input=fake_input)}
+    student_builtins = dict(vars(builtins), input=fake_input)
+    student_builtins.update(_model_functions(model.chat if model else _live_chat))
+    return {"__name__": "__main__", "__builtins__": student_builtins}
 
 
-def run(code, stdin=""):
-    """Executes student code. input() reads consecutive lines from `stdin`."""
+def run(code, stdin="", model=None):
+    """Executes student code. input() reads consecutive lines from `stdin`; ask() / chat() use `model`
+    (a FakeModel) or, without it, the real model."""
     out = _Output()
-    namespace = _student_namespace(stdin, out)
+    namespace = _student_namespace(stdin, out, model)
+    _llm_calls.clear()
     real_stdout = sys.stdout
     error = None
     try:
@@ -153,7 +227,9 @@ def run(code, stdin=""):
             error = _describe_error(exc, code)
     finally:
         sys.stdout = real_stdout
-    return RunResult(out.getvalue(), error, _user_variables(namespace), _user_functions(namespace))
+    return RunResult(
+        out.getvalue(), error, _user_variables(namespace), _user_functions(namespace), namespace["__builtins__"], list(_llm_calls)
+    )
 
 
 class Context:
@@ -162,10 +238,11 @@ class Context:
     def __init__(self, code):
         self.code = code
         self._runs = {}
+        self._model = None
 
     def run(self, stdin=""):
         if stdin not in self._runs:
-            self._runs[stdin] = run(self.code, stdin)
+            self._runs[stdin] = run(self.code, stdin, self._model)
         result = self._runs[stdin]
         if result.error:
             e = result.error
@@ -189,6 +266,14 @@ class Context:
     def code_lines(self):
         """Non-empty, non-comment lines of the student's code."""
         return [l for l in self.code.splitlines() if l.strip() and not l.strip().startswith("#")]
+
+    def fake_model(self, answers):
+        """From now on ask() / chat() in the student's code get `answers` in order (texts, or functions of
+        the messages). Returns the FakeModel: .calls has every request, .prompts the questions asked."""
+        self._model = FakeModel(answers)
+        for result in self._runs.values():
+            result.builtins.update(_model_functions(self._model.chat))
+        return self._model
 
     def function(self, name):
         """The student's function `name`; a missing one fails the test with a readable message."""

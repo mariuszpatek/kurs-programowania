@@ -1,12 +1,13 @@
 // "Zmień i uruchom" under a lesson example: the example opens in place as a small editor, so the
 // student can change a value and see what happens instead of only reading about it.
-// Nothing is sent anywhere: the changed code stays in this browser (as a draft keyed by the original
-// example), and "Przywróć" brings the original back. Loaded only when the button is clicked.
+// The changed code stays in this browser (as a draft keyed by the original example), and "Przywróć"
+// brings the original back. Loaded only when the button is clicked.
 import type { EditorView } from '@codemirror/view';
 import { createEditor, setDoc } from './editor';
 import { TimedOut, type CodeError, type Language } from './languages/types';
 import { mountStepper } from './stepper';
 import { loadDraft, saveDraft, clearDraft } from './progress';
+import { modelUsageText } from './model-usage';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') => {
   const e = document.createElement(tag);
@@ -99,7 +100,7 @@ export function mountPlayground(listing: HTMLElement, source: string, language: 
       output.textContent = text || '(program nic nie wypisał)';
       result.classList.toggle('error', Boolean(r.error));
       caption.textContent = r.error ? 'Twój wynik: błąd' : 'Twój wynik';
-      status.textContent = '';
+      status.textContent = modelUsageText(r.llm);
     } catch (e) {
       output.textContent =
         e instanceof TimedOut ? 'Program działał za długo i został zatrzymany. Może czeka na dane dla input()?' : String(e);

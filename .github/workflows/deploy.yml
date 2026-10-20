@@ -29,6 +29,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Model proxy tests
+        run: node --experimental-strip-types --no-warnings --test tests/llm-providers.test.ts
       - name: Build
         run: npm run build
         env:

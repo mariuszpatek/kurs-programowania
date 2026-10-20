@@ -30,6 +30,7 @@ import Layout from '../layouts/Layout.astro';
   <nav class="panel-nav" id="panel-nav" hidden>
     <a href="#students">Uczniowie</a>
     <a href="#lesson-notes">Lekcje</a>
+    <a href="#model-settings" id="model-nav" hidden>Model AI</a>
   </nav>
 
   <div id="students" class="students"></div>
@@ -39,6 +40,8 @@ import Layout from '../layouts/Layout.astro';
     <p class="muted">Publikacja lekcji i notatki dla nauczyciela (plan, przykłady, odpowiedzi). Szkic widzisz tylko Ty, a po publikacji widzą go uczniowie, którzy mają odblokowaną tę lekcję.</p>
     <div id="lesson-notes-list"></div>
   </section>
+
+  <section class="model-settings" id="model-settings" hidden></section>
 </Layout>
 
 <script>
@@ -46,6 +49,7 @@ import Layout from '../layouts/Layout.astro';
   import { renderMarkdown, enhanceContent } from '../lib/markdown';
   import { splitTeacherNotes, notesAsMarkdown } from '../lib/teacher-notes';
   import { supabase } from '../lib/supabase';
+  import { mountModelSettings } from '../lib/model-settings';
 
   type TestResult = { name: string; ok: boolean };
   type PredictLine = { student: string | null; actual: string | null; ok: boolean };
@@ -418,6 +422,8 @@ import Layout from '../layouts/Layout.astro';
     $('add-student').hidden = false;
     showLessons();
     await load();
+    await mountModelSettings($('model-settings'));
+    $('model-nav').hidden = $('model-settings').hidden;
   });
 
   $('add-form').addEventListener('submit', async (e) => {
@@ -530,6 +536,86 @@ import Layout from '../layouts/Layout.astro';
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
+  }
+  .model-settings {
+    margin-top: 56px;
+    scroll-margin-top: 80px;
+  }
+  .model-settings :global(h2) {
+    margin-bottom: 4px;
+  }
+  .model-settings :global(.model-form) {
+    display: grid;
+    gap: 18px;
+    margin-top: 20px;
+    padding: 20px 22px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  .model-settings :global(.model-providers) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .model-settings :global(.model-provider) {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 8px;
+    align-items: center;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    cursor: pointer;
+    min-width: 240px;
+  }
+  .model-settings :global(.model-provider:has(input:checked)) {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+  }
+  .model-settings :global(.model-provider .muted) {
+    grid-column: 2;
+    font-size: 13px;
+  }
+  .model-settings :global(.model-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .model-settings :global(.model-field) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .model-settings :global(.model-label) {
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .model-settings :global(.model-hint) {
+    font-size: 12.5px;
+  }
+  .model-settings :global(.model-actions) {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .model-settings :global(.model-usage) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .model-settings :global(.model-usage th),
+  .model-settings :global(.model-usage td) {
+    padding: 8px 10px 8px 0;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: middle;
+  }
+  .model-settings :global(.model-usage input) {
+    width: 130px;
+    padding: 5px 8px;
+    margin-right: 8px;
   }
   .add {
     margin-top: 32px;

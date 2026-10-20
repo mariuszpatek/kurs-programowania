@@ -3,6 +3,7 @@ import type { Language } from './languages';
 import { TimedOut, type CodeError, type RunResult } from './languages/types';
 import { loadDraft, saveDraft, saveAttempt, lastAttemptCode } from './progress';
 import { taskState } from './state';
+import { modelUsageText } from './model-usage';
 
 export type WorkspaceOptions = {
   language: Language;
@@ -86,7 +87,7 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
     terminal.textContent = r.output || (r.error ? '' : '(program nic nie wypisał)');
     terminal.classList.toggle('empty', !r.output);
     terminal.hidden = !r.output && Boolean(r.error);
-    $('.time').textContent = ms ? `${(ms / 1000).toFixed(2)} s` : '';
+    $('.time').textContent = [ms ? `${(ms / 1000).toFixed(2)} s` : '', modelUsageText(r.llm)].filter(Boolean).join(' · ');
     showError(r.error);
     taskState.lastResult = `Wyjście:\n${r.output}\n${r.error ? `Błąd: ${r.error.message} (linijka ${r.error.line})` : ''}`;
   }

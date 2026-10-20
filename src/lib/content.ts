@@ -12,6 +12,8 @@ export type Course = {
   level: string;
   description: string;
   tutor_prompt: string;
+  /** Place in the learning path (course.yaml `position`); courses are listed in this order. */
+  position?: number;
 };
 export type Enrollment = { email: string; course_id: string; unlocked_through: number };
 export type Lesson = { id: string; course_id: string; number: number; title: string; topics: string[]; body_md: string; draft: boolean };
@@ -81,7 +83,7 @@ export function requireAccess(): Promise<Access | null> {
     }
     const [{ data: isTeacher }, { data: courses }, { data: enrollments }] = await Promise.all([
       supabase.rpc('lms_is_teacher'),
-      supabase.from('lms_courses').select('*').order('title'),
+      supabase.from('lms_courses').select('*').order('position').order('title'),
       supabase.from('lms_enrollments').select('email, course_id, unlocked_through').eq('email', user.email!.toLowerCase()),
     ]);
     if (!isTeacher && !enrollments?.length) return null;
@@ -142,9 +144,10 @@ export async function taskBySlug(courseId: string, slug: string): Promise<Task |
   return data;
 }
 
-/** Course label like "Podstawy · Python". */
+/** Course label like "Krok 2 · Podstawy · Python" (the step only for courses that have a place in the path). */
 export function courseLabel(course: Course): string {
-  return [course.level, languageById(course.language).label].filter(Boolean).join(' · ');
+  const step = course.position && course.position < 100 ? `Krok ${course.position}` : '';
+  return [step, course.level, languageById(course.language).label].filter(Boolean).join(' · ');
 }
 
 /** The course's tutor prompt with {{topics}} filled in from lessons up to `lessonNumber`. */
