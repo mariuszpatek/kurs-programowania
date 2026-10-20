@@ -158,6 +158,11 @@ class Model(unittest.TestCase):
         self.assertEqual(r.error["type"], "ModelError")
         self.assertIn("limit", r.error["message"])
 
+    def test_main_block_runs_only_outside_tests(self):
+        code = RATE + '\nif __name__ == "__main__":\n    print(rate("demo"))\n'
+        self.assertEqual(checker.run(code).error["type"], "ModelError")
+        self.assertTrue(checker.check(code, MODEL_TESTS)["passed"])
+
     def test_bad_messages(self):
         r = checker.run('chat([{"role": "system", "content": "x"}])')
         self.assertEqual(r.error["type"], "TypeError")

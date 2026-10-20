@@ -189,7 +189,7 @@ class RunResult:
         return {"output": self.output, "error": self.error, "llm": self.llm}
 
 
-def _student_namespace(stdin, out, model=None):
+def _student_namespace(stdin, out, model=None, main=True):
     """Globals for student code: input() reads consecutive lines from `stdin` and echoes them like a terminal."""
     pending = stdin.split("\n") if stdin else []
     if pending and pending[-1] == "":
@@ -205,14 +205,16 @@ def _student_namespace(stdin, out, model=None):
 
     student_builtins = dict(vars(builtins), input=fake_input)
     student_builtins.update(_model_functions(model.chat if model else _live_chat))
-    return {"__name__": "__main__", "__builtins__": student_builtins}
+    # under tests the code is not __main__, so a demo under `if __name__ == "__main__":` (e.g. a real
+    # ask()) runs on "Uruchom" but not on "Sprawdź"
+    return {"__name__": "__main__" if main else "twoj_kod", "__builtins__": student_builtins}
 
 
-def run(code, stdin="", model=None):
+def run(code, stdin="", model=None, main=True):
     """Executes student code. input() reads consecutive lines from `stdin`; ask() / chat() use `model`
     (a FakeModel) or, without it, the real model."""
     out = _Output()
-    namespace = _student_namespace(stdin, out, model)
+    namespace = _student_namespace(stdin, out, model, main)
     _llm_calls.clear()
     real_stdout = sys.stdout
     error = None
@@ -242,7 +244,7 @@ class Context:
 
     def run(self, stdin=""):
         if stdin not in self._runs:
-            self._runs[stdin] = run(self.code, stdin, self._model)
+            self._runs[stdin] = run(self.code, stdin, self._model, main=False)
         result = self._runs[stdin]
         if result.error:
             e = result.error
