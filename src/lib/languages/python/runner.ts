@@ -6,6 +6,9 @@ const TIME_LIMIT_MS = { run: 5000, check: 15000, predict: 5000, trace: 5000 };
 /** Code that talks to the language model waits for its answers, so it gets more time. */
 const MODEL_TIME_LIMIT_MS = 120_000;
 const usesModel = (code: string) => /\b(ask|chat)\s*\(/.test(code);
+/** The first import of a big package downloads it (several seconds), so such code also gets more time. */
+const PACKAGES_TIME_LIMIT_MS = 60_000;
+const usesPackages = (code: string) => /^\s*(import|from)\s+(numpy|pandas|sklearn|pydantic|scipy)\b/m.test(code);
 
 async function modelAuth() {
   const { data } = await supabase.auth.getSession();
@@ -56,7 +59,7 @@ async function send<T>(kind: keyof typeof TIME_LIMIT_MS, payload: Record<string,
       booting = null;
       preparePython();
       reject(new TimedOut());
-    }, live ? MODEL_TIME_LIMIT_MS : TIME_LIMIT_MS[kind]);
+    }, live ? MODEL_TIME_LIMIT_MS : usesPackages(`${payload.code}\n${payload.tests ?? ''}`) ? PACKAGES_TIME_LIMIT_MS : TIME_LIMIT_MS[kind]);
     pending.set(id, {
       resolve: (r) => (clearTimeout(timer), resolve(r)),
       reject: (e) => (clearTimeout(timer), reject(e)),

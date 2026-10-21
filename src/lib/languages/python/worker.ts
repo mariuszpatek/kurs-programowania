@@ -66,6 +66,8 @@ self.onmessage = async (e: MessageEvent) => {
   try {
     const pyodide = await ready!;
     auth = job.auth;
+    // numpy, pydantic, pandas, scikit-learn … are fetched from the CDN the first time the code imports them
+    await pyodide.loadPackagesFromImports(`${job.code}\n${job.tests ?? ''}`);
     pyodide.globals.set('_code', job.code);
     pyodide.globals.set('_stdin', job.stdin ?? '');
     pyodide.globals.set('_tests', job.tests ?? '');
