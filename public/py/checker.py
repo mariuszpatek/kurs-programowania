@@ -97,11 +97,13 @@ def _user_variables(namespace):
 
 
 def _user_functions(namespace):
-    """Functions defined in the student's code (not imported ones)."""
+    """Functions and classes defined in the student's code (not imported ones): tests reach both with
+    ctx.function / ctx.call, e.g. ctx.call("CostTracker", 1.0) creates an object."""
     return {
         name: value
         for name, value in namespace.items()
-        if isinstance(value, types.FunctionType) and value.__code__.co_filename == STUDENT_FILE
+        if (isinstance(value, types.FunctionType) and value.__code__.co_filename == STUDENT_FILE)
+        or (isinstance(value, type) and value.__module__ == namespace.get("__name__"))
     }
 
 

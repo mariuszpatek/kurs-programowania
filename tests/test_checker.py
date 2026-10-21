@@ -96,6 +96,12 @@ class Functions(unittest.TestCase):
         r = checker.check("def double(x):\n    return x + y\n", FUNCTION_TESTS)
         self.assertIn("double(4) zakończyła się błędem: NameError", r["tests"][0]["message"])
 
+    def test_classes_are_reachable(self):
+        tests = 'def test_counter(ctx):\n    c = ctx.call("Counter", 2)\n    c.add()\n    assert c.value == 3\n'
+        r = checker.check("class Counter:\n    def __init__(self, start):\n        self.value = start\n    def add(self):\n        self.value += 1\n", tests)
+        self.assertTrue(r["passed"], r["tests"])
+        self.assertNotIn("ValueError", checker.run("from math import sqrt\nclass A:\n    pass\n").functions)
+
     def test_imported_functions_are_not_the_students(self):
         r = checker.run("from math import sqrt\ndef f():\n    return 1\n")
         self.assertEqual(list(r.functions), ["f"])
