@@ -7,7 +7,8 @@
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
 //                                     "## @slug Title" sections show up at <!-- nauczyciel: slug --> in the lesson
 //   <course>/lessons/img/name.svg     drawings; ![caption](img/name.svg) in a lesson is inlined (src/lib/diagrams.ts)
-//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?, hints?
+//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind (code | predict | local), in_class?, starter_code?, predict_code?, hints?
+//                                     local: done on the student's computer, no tests; the student hands in a link or a description
 //                                     hints: list of graded hints, the student opens them after failed checks
 //   <course>/tasks/01/01-name.teacher.md  solution and explanation for the teacher only; optional
 //
@@ -103,6 +104,7 @@ export function loadCourse(dir) {
       const name = basename(f, '.md');
       const { meta, body } = frontmatter(read(join(dir, 'tasks', lessonFolder, f)), f);
       const kind = meta.kind ?? 'code';
+      if (!['code', 'predict', 'local'].includes(kind)) throw new Error(`${f}: kind must be code, predict or local`);
       const hints = meta.hints ?? [];
       if (!Array.isArray(hints) || hints.some((h) => typeof h !== 'string' || !h.trim())) {
         throw new Error(`${f}: hints must be a list of non-empty texts`);

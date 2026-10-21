@@ -24,7 +24,8 @@ export type Task = {
   number: number;
   slug: string;
   title: string;
-  kind: 'code' | 'predict';
+  /** local: done on the student's computer, handed in as a link or a description. */
+  kind: 'code' | 'predict' | 'local';
   body_md: string;
   starter_code: string;
   predict_code: string;

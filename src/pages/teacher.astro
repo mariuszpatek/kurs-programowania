@@ -89,6 +89,8 @@ import Layout from '../layouts/Layout.astro';
     return opened && t.hints?.length ? `podpowiedzi ${opened}/${t.hints.length}` : '';
   }
 
+  const isLocal = (a: Attempt) => (a.results as { kind?: string } | null)?.kind === 'local';
+
   function history(list: Attempt[]) {
     const ol = el('ol', '', 'history');
     list.forEach((a, i) => {
@@ -96,14 +98,14 @@ import Layout from '../layouts/Layout.astro';
       const head = el('div', '', 'attempt-head');
       head.append(
         el('span', `#${list.length - i}`, 'row-number'),
-        el('span', a.passed ? 'zaliczona' : 'nie przeszła', `status-dot ${a.passed ? 'done' : 'started'}`),
+        el('span', isLocal(a) ? 'oddane' : a.passed ? 'zaliczona' : 'nie przeszła', `status-dot ${a.passed ? 'done' : 'started'}`),
         el('span', when(a.created_at), 'when'),
       );
       li.append(head);
       const failed = failures(a);
       if (failed.length) li.append(el('p', `Nie przeszło: ${failed.join(' · ')}`, 'failed'));
       const code = el('details', '', 'attempt-code');
-      code.append(el('summary', 'Kod'), el('pre', a.code));
+      code.append(el('summary', isLocal(a) ? 'Oddana praca' : 'Kod'), el('pre', a.code));
       code.open = i === 0;
       li.append(code);
       ol.append(li);

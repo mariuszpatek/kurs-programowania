@@ -7,6 +7,12 @@
 
 alter table public.lms_courses add column if not exists position int not null default 100;
 
+-- ---------------------------------------------------------------- tasks done on the student's computer
+
+-- kind 'local': instructions and criteria on the page, the student hands in a repo link or a description
+alter table public.lms_tasks drop constraint if exists lms_tasks_kind_check;
+alter table public.lms_tasks add constraint lms_tasks_kind_check check (kind in ('code', 'predict', 'local'));
+
 -- ---------------------------------------------------------------- settings (one row)
 
 create table if not exists public.lms_llm_settings (

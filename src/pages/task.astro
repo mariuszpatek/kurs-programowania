@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Workspace from '../components/Workspace.astro';
 import Predict from '../components/Predict.astro';
+import LocalTask from '../components/LocalTask.astro';
 import Assistant from '../components/Assistant.astro';
 ---
 
@@ -34,6 +35,7 @@ import Assistant from '../components/Assistant.astro';
     <div class="work">
       <Workspace />
       <Predict />
+      <LocalTask />
     </div>
   </div>
 </Layout>
@@ -44,6 +46,7 @@ import Assistant from '../components/Assistant.astro';
   import { renderMarkdown, enhanceContent } from '../lib/markdown';
   import { mountWorkspace } from '../lib/workspace';
   import { mountPredict } from '../lib/predict';
+  import { mountLocalTask } from '../lib/local-task';
   import { mountAssistant } from '../lib/assistant';
   import { mountHints } from '../lib/hints';
   import { languageById } from '../lib/languages';
@@ -99,6 +102,8 @@ import { param } from '../lib/url';
 
     if (task.kind === 'predict') {
       mountPredict(document.querySelector('.predict')!, task, language);
+    } else if (task.kind === 'local') {
+      mountLocalTask(document.querySelector('.local-task')!, task);
     } else {
       mountWorkspace(document.querySelector('.workspace')!, {
         language,

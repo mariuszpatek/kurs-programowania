@@ -30,6 +30,8 @@ def validate(task):
             problems.append(f"{slug}: odpowiedź w .txt nie zgadza się z prawdziwym wynikiem kodu")
         return problems
 
+    if task["kind"] == "local":
+        return [f"{slug}: zadanie local nie może mieć testów (robi się je na komputerze)"] if task["tests"] else []
     if not task["tests"]:
         return []
     if task.get("solution") is None:

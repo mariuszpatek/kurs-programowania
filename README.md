@@ -24,7 +24,7 @@ python-podstawy/
   lessons/01.md                     frontmatter: number, title, topics
   lessons/01.teacher.md             notatki tylko dla nauczyciela (plan, pytania, notatki przy fragmentach lekcji)
   lessons/img/nazwa.svg             rysunki; generator: lessons/img/_rysunki.py
-  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict), in_class?, starter_code?, predict_code?, hints?
+  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict | local), in_class?, starter_code?, predict_code?, hints?
   tasks/01/01-nazwa.teacher.md      rozwiązanie z wyjaśnieniem, tylko dla nauczyciela
   tasks/01/01-nazwa.test.py         testy: funkcje test_*(ctx)
   solutions/01/01-nazwa.py          wzorcowe rozwiązanie (dla predict: .txt z oczekiwanym wynikiem)
@@ -40,6 +40,8 @@ npm run sync-content                      # walidacja i wgranie wszystkich kurs�
 ```
 
 Nowa lekcja trafia do bazy jako szkic: widzi ją tylko nauczyciel (z oznaczeniem „szkic”), więc można ją przejrzeć na stronie przed zajęciami. Publikuje się ją przyciskiem w panelu (sekcja „Lekcje”) albo na stronie lekcji. `sync-content` nie zmienia tego, czy lekcja jest opublikowana, a nowe zadanie dostaje status swojej lekcji. Uczeń widzi opublikowaną lekcję, gdy ma ją odblokowaną (+ przy uczniu).
+
+Zadanie `kind: local` robi się na komputerze (Postgres, Docker, SDK z kluczem API, chmura): strona pokazuje polecenie i pole na link do repozytorium albo opis, „Oddaj” zapisuje próbę widoczną w panelu. Takie zadanie nie ma testów.
 
 Zadania z `in_class: true` są na liście osobno, jako „Na lekcji”, przed zadaniami domowymi.
 

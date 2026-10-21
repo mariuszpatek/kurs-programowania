@@ -1,0 +1,46 @@
+---
+// A task done on the student's computer (kind: local). Markup only: src/lib/local-task.ts mounts it.
+---
+
+<div class="local-task" hidden>
+  <div class="card local-card">
+    <p class="eyebrow">Na komputerze</p>
+    <p class="local-lead">
+      To zadanie robisz u siebie: polecenie i kryteria są obok. Gdy skończysz, wklej link do repozytorium albo opisz krótko, co zrobiłeś i co
+      wyszło.
+    </p>
+    <label class="eyebrow" for="handin">Twoja praca</label>
+    <textarea id="handin" rows="6" spellcheck="true" placeholder="https://github.com/… albo kilka zdań: co działa, czego nie udało się zrobić, czego się nauczyłeś"
+    ></textarea>
+    <div class="actions">
+      <span class="status muted" role="status"></span>
+      <button class="hand-in primary" type="button">Oddaj</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .local-card {
+    padding: 20px 22px;
+  }
+  .local-lead {
+    color: var(--text-2);
+    font-size: 15px;
+    margin: 6px 0 18px;
+  }
+  textarea {
+    margin-top: 6px;
+    font-family: var(--sans);
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .status {
+    flex: 1;
+    font-size: 13.5px;
+  }
+</style>
