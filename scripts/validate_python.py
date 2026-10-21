@@ -76,11 +76,14 @@ def validate_lesson(lesson):
 
 
 def _code_lines(code):
-    """Lines that say something: no blanks, comments or bare brackets (`],` `}` would match any dict literal)."""
+    """Lines that say something: no blanks, comments, imports or bare brackets (they match across unrelated code)."""
     return [
         line.strip()
         for line in code.splitlines()
-        if line.strip() and not line.strip().startswith("#") and re.search(r"\w", line)
+        if line.strip()
+        and not line.strip().startswith("#")
+        and re.search(r"\w", line)
+        and not re.match(r"\s*(import|from)\s", line)
     ]
 
 
