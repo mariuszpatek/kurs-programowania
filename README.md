@@ -10,7 +10,7 @@ Interfejs jest po polsku, kod (TypeScript, Python, SQL) po angielsku.
 
 - **Dostęp tylko po zalogowaniu.** Logowanie linkiem z maila (bez hasła). Konto zakłada nauczyciel, strona sama kont nie tworzy.
 - **Treść nie jest w tym repo.** Lekcje, zadania i testy są w Supabase. Reguły RLS wydają uczniowi tylko kursy, na które jest zapisany, i tylko lekcje do numeru `unlocked_through`. Zbudowana strona to pusta aplikacja, która bez logowania nic nie pokaże.
-- **Python działa w przeglądarce** (Pyodide w Web Workerze). Program działający dłużej niż 5 s jest zatrzymywany (kod z `ask()`/`chat()` ma 2 min, kod importujący numpy, pandas, scikit-learn albo pydantic 1 min, bo pierwszy import pobiera pakiet). Pakiety z Pyodide ładują się same, gdy kod je importuje; do walidacji treści lokalnie potrzebne są te same pakiety (`py -m pip install --user numpy pydantic`).
+- **Python działa w przeglądarce** (Pyodide w Web Workerze). Program działający dłużej niż 5 s jest zatrzymywany (kod z `ask()`/`chat()` ma 2 min, kod importujący numpy, pandas, scikit-learn, pydantic, polars, duckdb albo sqlalchemy 1 min, bo pierwszy import pobiera pakiet). Pakiety z Pyodide ładują się same, gdy kod je importuje; do walidacji treści lokalnie potrzebne są te same pakiety (`py -m pip install --user numpy pydantic`).
 - **Próby** (każde „Sprawdź”) trafiają do `lms_attempts`. Nauczyciel widzi je w panelu `/teacher/`.
 
 ## Treść kursów

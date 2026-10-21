@@ -8,7 +8,7 @@ const MODEL_TIME_LIMIT_MS = 120_000;
 const usesModel = (code: string) => /\b(ask|chat)\s*\(/.test(code);
 /** The first import of a big package downloads it (several seconds), so such code also gets more time. */
 const PACKAGES_TIME_LIMIT_MS = 60_000;
-const usesPackages = (code: string) => /^\s*(import|from)\s+(numpy|pandas|sklearn|pydantic|scipy)\b/m.test(code);
+const usesPackages = (code: string) => /^\s*(import|from)\s+(numpy|pandas|sklearn|pydantic|scipy|polars|duckdb|sqlalchemy)\b/m.test(code);
 
 async function modelAuth() {
   const { data } = await supabase.auth.getSession();
