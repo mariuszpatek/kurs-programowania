@@ -76,7 +76,12 @@ def validate_lesson(lesson):
 
 
 def _code_lines(code):
-    return [line.strip() for line in code.splitlines() if line.strip() and not line.strip().startswith("#")]
+    """Lines that say something: no blanks, comments or bare brackets (`],` `}` would match any dict literal)."""
+    return [
+        line.strip()
+        for line in code.splitlines()
+        if line.strip() and not line.strip().startswith("#") and re.search(r"\w", line)
+    ]
 
 
 def spoilers(tasks, lessons):
