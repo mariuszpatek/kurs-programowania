@@ -59,7 +59,8 @@ const DRAWING_RULES = [
 
 /** ![caption](img/name.svg) becomes the drawing itself, so it needs no hosting and follows the theme. */
 function inlineDrawings(body, lessonsDir, file, used) {
-  return body.replace(/^!\[([^\]]*)\]\((img\/[\w-]+\.svg)\)\s*$/gm, (_, caption, path) => {
+  // [ \t]*, not \s*: \s would also swallow the empty line after the drawing and glue the next block to the HTML
+  return body.replace(/^!\[([^\]]*)\]\((img\/[\w-]+\.svg)\)[ \t]*$/gm, (_, caption, path) => {
     const svg = readIfExists(join(lessonsDir, path));
     if (!svg) throw new Error(`${file}: no drawing ${path}`);
     for (const [pattern, what] of DRAWING_RULES) {
