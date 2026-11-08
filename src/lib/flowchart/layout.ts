@@ -35,6 +35,9 @@ const GAP_Y = 30;
 const GAP_X = 36;
 const LANE = 22;
 const MARGIN = 16;
+/** The call label next to a block (render.ts): 6px from the block, Geist Mono at 11px. */
+export const CALL_GAP = 6;
+const CALL_CHAR_W = 6.6;
 /** Characters reserved in a decision for " → tak" when it shows its value. */
 export const DECISION_EXTRA = 7;
 
@@ -114,9 +117,11 @@ class Builder {
   }
 
   single(node: ChartNode, exits: Exit[], jumps: Partial<Pick<Fragment, 'breaks' | 'continues' | 'returns'>> = {}): Fragment {
+    // room on the right for the "↗ double" call label, so lanes going round pass it by
+    const callLabel = node.calls.length ? CALL_GAP + (2 + node.calls.join(', ').length) * CALL_CHAR_W : 0;
     return {
       nodes: [node], edges: [], entry: node.id, exits, breaks: [], continues: [], returns: [], ...jumps,
-      left: -node.w / 2, right: node.w / 2, bottom: node.y + node.h / 2,
+      left: -node.w / 2, right: node.w / 2 + callLabel, bottom: node.y + node.h / 2,
     };
   }
 
@@ -195,7 +200,8 @@ class Builder {
       edges,
       entry: check.id,
       exits: [
-        { node: check.id, side: 'right', label: isWhile ? 'nie' : 'koniec', kind: 'no', lane: exitLane },
+        // while True never stops by itself: the only ways out are the breaks
+        ...(isWhile && b.test === 'True' ? [] : [{ node: check.id, side: 'right' as const, label: isWhile ? 'nie' : 'koniec', kind: 'no' as const, lane: exitLane }]),
         ...body.breaks.map((exit) => ({ ...exit, side: 'right' as const, lane: exitLane })),
       ],
       breaks: [],

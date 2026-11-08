@@ -75,6 +75,9 @@ import Layout from '../layouts/Layout.astro';
   import { param } from '../lib/url';
   import { recordVisit } from '../lib/visits';
 
+  // "Schemat" in "Krok po kroku": only the teacher sees it until it is switched on for everyone
+  const FLOWCHARTS_FOR_STUDENTS = false;
+
   const $ = (id: string) => document.getElementById(id)!;
   const el = (tag: string, text = '', className = '') => {
     const e = document.createElement(tag);
@@ -163,6 +166,7 @@ import Layout from '../layouts/Layout.astro';
         $('publish-message').textContent = 'Opublikowana. Uczeń zobaczy ją, gdy odblokujesz mu tę lekcję w panelu (+).';
       });
     }
+    if (access.isTeacher || FLOWCHARTS_FOR_STUDENTS) document.documentElement.dataset.flowchart = 'on';
     $('lesson-body').innerHTML = renderMarkdown(lesson.body_md);
     enhanceContent($('lesson-body'), { playground: true });
     const minutes = readingMinutes($('lesson-body'));

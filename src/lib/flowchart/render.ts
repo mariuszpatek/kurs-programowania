@@ -1,7 +1,7 @@
 // Draws the laid-out charts as SVG (classes only, so light and dark themes work) and shows one step:
 // the current node, the edge taken next, a decision's value, loop badges and a marker that moves
 // along the edge it came by.
-import { shorten } from './layout';
+import { CALL_GAP, shorten } from './layout';
 import type { Chart, ChartEdge, ChartNode } from './model';
 import type { StepView } from './progress';
 
@@ -62,7 +62,7 @@ function edgeGroup(e: ChartEdge): SVGGElement {
 function nodeGroup(n: ChartNode): SVGGElement {
   const g = svg('g', { class: `fc-node fc-${n.shape}`, 'data-node': n.id });
   g.append(svg('title', {}, n.text), shape(n), svg('text', { class: 'fc-text', x: n.x, y: n.y + 4.5, 'text-anchor': 'middle' }, shorten(n.text)));
-  if (n.calls.length) g.append(svg('text', { class: 'fc-call', x: n.x + n.w / 2 - 4, y: n.y - n.h / 2 - 4, 'text-anchor': 'end' }, `↗ ${n.calls.join(', ')}`));
+  if (n.calls.length) g.append(svg('text', { class: 'fc-call', x: n.x + n.w / 2 + CALL_GAP, y: n.y + 4, 'text-anchor': 'start' }, `↗ ${n.calls.join(', ')}`));
   return g;
 }
 
@@ -108,7 +108,8 @@ export function mountFlowchart(charts: Chart[], views: StepView[]) {
 
   function badge(target: ChartNode, text: string): SVGGElement {
     const w = text.length * 6.6 + 14;
-    const x = target.x + target.w / 2 - w + 10;
+    // over the top-left corner: the right side carries the "nie" / "koniec" label of the way out
+    const x = target.x - target.w / 2 - 4;
     const y = target.y - target.h / 2 - 12;
     const g = svg('g', { class: 'fc-badge' });
     g.append(svg('rect', { x, y, width: w, height: 18, rx: 9 }), svg('text', { x: x + w / 2, y: y + 12.5, 'text-anchor': 'middle' }, text));

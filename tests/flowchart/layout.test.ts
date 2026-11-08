@@ -76,6 +76,28 @@ test('break leaves the loop, continue goes back to its check', () => {
   assert.equal(forLoop.target, 'w');
 });
 
+test('while True has no way out except break', () => {
+  const [chart] = layout({ main: [
+    { kind: 'while', line: 1, test: 'True', body: [{ kind: 'break', line: 2 }] },
+    { kind: 'stmt', line: 3, text: 'print("koniec")', io: 'out', calls: [] },
+  ], functions: {} });
+  const loop = chart.nodes.find((n) => n.line === 1)!;
+  const brk = chart.nodes.find((n) => n.line === 2)!;
+  const after = chart.nodes.find((n) => n.line === 3)!;
+  assert.ok(!chart.edges.some((e) => e.from === loop.id && e.label === 'nie'));
+  assert.ok(chart.edges.some((e) => e.from === brk.id && e.to === after.id));
+});
+
+test('the way out of a loop passes the call label by', () => {
+  const [chart] = layout({ main: [
+    { kind: 'for', line: 1, target: 'w', iter: '[1, 2]', body: [{ kind: 'stmt', line: 2, text: 'y = double(w)', io: null, calls: ['double'] }] },
+  ], functions: {} });
+  const call = chart.nodes.find((n) => n.line === 2)!;
+  const labelEnd = call.x + call.w / 2 + 6 + '↗ double'.length * 6.6;
+  const out = chart.edges.find((e) => e.label === 'koniec')!;
+  assert.ok(Math.max(...out.points.map(([x]) => x)) > labelEnd);
+});
+
 test('functions get their own chart', () => {
   const charts = layout(withFunction);
   assert.deepEqual(charts.map((c) => c.name), [null, 'double']);
