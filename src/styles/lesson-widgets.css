@@ -326,6 +326,19 @@
   gap: 8px;
 }
 
+.stepper-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.stepper-speed input {
+  width: 84px;
+  accent-color: var(--accent);
+}
+
 .stepper-count {
   min-width: 7.5em;
   text-align: center;
