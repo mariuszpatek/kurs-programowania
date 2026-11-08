@@ -1,4 +1,5 @@
 import type { Extension } from '@codemirror/state';
+import type { FlowProgram } from '../flowchart/model';
 
 export type CodeError = { type: string; message: string; line: number | null; line_text: string | null; hint: string | null };
 export type RunResult = { output: string; error: CodeError | null };
@@ -17,8 +18,12 @@ export type TraceStep = {
   error: CodeError | null;
   /** How the line was computed, value by value (Thonny-like "step into"). */
   parts: TracePart[];
+  /** The student's function this line belongs to (null: the program), its variables and the call depth. */
+  frame?: string | null;
+  locals?: { name: string; type: string; value: string }[];
+  depth?: number;
 };
-export type TraceResult = { steps: TraceStep[]; error: CodeError | null };
+export type TraceResult = { steps: TraceStep[]; error: CodeError | null; flow?: FlowProgram | null };
 
 export class TimedOut extends Error {}
 
