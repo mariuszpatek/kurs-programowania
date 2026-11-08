@@ -3,6 +3,7 @@
 Reads {"tasks": [...], "lessons": [...]} as JSON on stdin (written by sync-content.mjs for Python courses).
 - Tasks: the reference solution must pass every test (or, for "predict" tasks, match the real output),
   and every "bad" solution must fail at least one test, so the tests really catch that mistake.
+  In "choice" tasks the [x] answer of every question must be what its code prints.
 - Lessons: every ```python example must compile (except ```python błąd, a syntax error shown on purpose),
   and every ```python krok example must run in the
   "step by step" view (an error at runtime is fine: lessons show errors on purpose).
@@ -29,6 +30,16 @@ def validate(task):
             return [f"{slug}: brak pliku z odpowiedzią (.txt)"]
         if not checker.compare_prediction(task["predict_code"], task["solution"])["passed"]:
             problems.append(f"{slug}: odpowiedź w .txt nie zgadza się z prawdziwym wynikiem kodu")
+        return problems
+
+    if task["kind"] == "choice":
+        for i, question in enumerate(task.get("choice_checks", []), 1):
+            result = checker.compare_prediction(question["code"], "")
+            printed = ", ".join(line["actual"].strip() for line in result["lines"] if line["actual"] is not None)
+            if result["error"]:
+                problems.append(f"{slug}, pytanie {i}: kod kończy się błędem: {result['error']['message']}")
+            elif printed != question["answer"]:
+                problems.append(f"{slug}, pytanie {i}: dobra odpowiedź to „{question['answer']}”, a program wypisuje „{printed}”")
         return problems
 
     if not task["tests"]:
@@ -98,7 +109,7 @@ def main():
     data = json.load(sys.stdin)
     tasks, lessons = (data, []) if isinstance(data, list) else (data["tasks"], data.get("lessons", []))
     problems = [p for task in tasks for p in validate(task)] + [p for lesson in lessons for p in validate_lesson(lesson)]
-    checked = sum(1 for t in tasks if t["tests"] or t["kind"] == "predict")
+    checked = sum(1 for t in tasks if t["tests"] or t["kind"] in ("predict", "choice"))
     bad = sum(len(t.get("bad", [])) for t in tasks)
     examples = sum(len(lesson_examples(lesson)) for lesson in lessons)
     for warning in spoilers(tasks, lessons):

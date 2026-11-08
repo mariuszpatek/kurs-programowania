@@ -44,6 +44,7 @@ import Assistant from '../components/Assistant.astro';
   import { renderMarkdown, enhanceContent } from '../lib/markdown';
   import { mountWorkspace } from '../lib/workspace';
   import { mountPredict } from '../lib/predict';
+  import { mountChoice } from '../lib/choice';
   import { mountAssistant } from '../lib/assistant';
   import { mountHints } from '../lib/hints';
   import { languageById } from '../lib/languages';
@@ -99,6 +100,10 @@ import { param } from '../lib/url';
 
     if (task.kind === 'predict') {
       mountPredict(document.querySelector('.predict')!, task, language);
+    } else if (task.kind === 'choice') {
+      // the questions are in the text, so there is nothing to put in the work column
+      document.querySelector('.task-layout')!.classList.add('choice');
+      mountChoice($('task-body'), task);
     } else {
       mountWorkspace(document.querySelector('.workspace')!, {
         language,
@@ -135,6 +140,12 @@ import { param } from '../lib/url';
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
     gap: 48px;
     align-items: start;
+  }
+  .task-layout.choice {
+    grid-template-columns: minmax(0, 760px);
+  }
+  .task-layout.choice .work {
+    display: none;
   }
   .work {
     position: sticky;

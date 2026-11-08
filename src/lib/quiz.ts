@@ -8,8 +8,11 @@
 //
 // The page shows A) B) C) … buttons. A wrong pick turns red with its explanation and the reader tries again;
 // the right one turns green and closes the question. sync-content checks every quiz (scripts/sync-content.mjs).
+// Each pick also sends a "quiz-answer" event (QuizAnswer), which a "choice" task page saves as an attempt.
 
 export type QuizOption = { correct: boolean; answer: string; explanation: string };
+/** Detail of the bubbling "quiz-answer" event: which question (in page order) and what was picked. */
+export type QuizAnswer = { question: number; letter: string; answer: string; correct: boolean };
 
 const LETTERS = 'ABCDEFGHIJ';
 
@@ -25,7 +28,8 @@ export function quizHtml(options: QuizOption[]): string {
 }
 
 export function mountQuizzes(root: HTMLElement) {
-  for (const quiz of root.querySelectorAll<HTMLElement>('.quiz:not([data-ready])')) {
+  for (const [question, quiz] of root.querySelectorAll<HTMLElement>('.quiz').entries()) {
+    if ('ready' in quiz.dataset) continue;
     quiz.dataset.ready = '';
     const buttons = [...quiz.querySelectorAll<HTMLButtonElement>('.quiz-option')];
     const explanations = [...quiz.querySelectorAll<HTMLElement>('.quiz-explanation')];
@@ -37,6 +41,8 @@ export function mountQuizzes(root: HTMLElement) {
         button.classList.add(correct ? 'right' : 'wrong');
         button.disabled = true;
         if (correct) for (const other of buttons) other.disabled = true;
+        const detail: QuizAnswer = { question, letter: LETTERS[i], answer: button.lastElementChild!.textContent ?? '', correct };
+        quiz.dispatchEvent(new CustomEvent('quiz-answer', { detail, bubbles: true }));
       });
     });
   }

@@ -24,7 +24,7 @@ python-podstawy/
   lessons/01.md                     frontmatter: number, title, topics
   lessons/01.teacher.md             notatki tylko dla nauczyciela (plan, pytania, notatki przy fragmentach lekcji)
   lessons/img/nazwa.svg             rysunki; generator: lessons/img/_rysunki.py
-  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict), in_class?, starter_code?, predict_code?, hints?
+  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict | choice), in_class?, starter_code?, predict_code?, hints?
   tasks/01/01-nazwa.teacher.md      rozwiązanie z wyjaśnieniem, tylko dla nauczyciela
   tasks/01/01-nazwa.test.py         testy: funkcje test_*(ctx)
   solutions/01/01-nazwa.py          wzorcowe rozwiązanie (dla predict: .txt z oczekiwanym wynikiem)
@@ -90,6 +90,10 @@ Pytanie zamknięte (`src/lib/quiz.ts`) to lista z polami wyboru, `[x]` przy dobr
 ```
 
 Na stronie są z tego przyciski A) B) C)…: zła odpowiedź robi się czerwona i pokazuje swoje wyjaśnienie, dobra zielona i zamyka pytanie. `sync-content` odrzuca quiz bez dokładnie jednego `[x]` albo z odpowiedzią bez wyjaśnienia.
+
+Zadanie `kind: choice` to kilka takich pytań w treści zadania: blok ```` ```python ```` i zaraz pod nim lista z odpowiedziami. Edytora nie ma; zadanie zalicza się, gdy każde pytanie ma dobrą odpowiedź, a każde kliknięcie zapisuje się jako próba (podpowiedzi, panel). Pliku w `solutions/` nie ma: `sync-content` uruchamia kod pytania i sprawdza, że wypisuje to, co odpowiedź z `[x]` (kilka linijek po przecinku: `10, 20, 30`). Wymaga migracji `20261108000000_lms_task_choice.sql`.
+
+Pod „Krok po kroku”, schematem i rysunkami jest suwak „Tempo” dla „Odtwórz” (`src/lib/step-controls.ts`), zapamiętywany w przeglądarce.
 
 ### Zmień i uruchom (`src/lib/playground.ts`)
 

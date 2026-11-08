@@ -86,26 +86,49 @@ function checkTaskMarkers(lessons, tasks) {
 }
 
 /** A checkbox list is a quiz (src/lib/quiz.ts): exactly one [x] and an explanation under every answer. */
-function checkQuizzes(lessons) {
+function checkQuizzes(docs) {
   let ok = true;
-  const fail = (lesson, message) => {
-    console.error(`  ✗ lekcja ${lesson.number}: ${message}`);
-    ok = false;
-  };
-  for (const lesson of lessons) {
+  for (const { where, body_md } of docs) {
+    const fail = (message) => {
+      console.error(`  ✗ ${where}: ${message}`);
+      ok = false;
+    };
     const lexer = new Marked();
-    lexer.walkTokens(lexer.lexer(lesson.body_md), (token) => {
+    lexer.walkTokens(lexer.lexer(body_md), (token) => {
       if (token.type !== 'list' || !token.items.some((item) => item.task)) return;
       const first = token.items[0].text.split('\n')[0];
-      if (!token.items.every((item) => item.task)) return fail(lesson, `quiz „${first}…”: każdy punkt listy potrzebuje [ ] albo [x]`);
-      if (token.items.length < 2) return fail(lesson, `quiz „${first}”: potrzeba co najmniej dwóch odpowiedzi`);
+      if (!token.items.every((item) => item.task)) return fail(`quiz „${first}…”: każdy punkt listy potrzebuje [ ] albo [x]`);
+      if (token.items.length < 2) return fail(`quiz „${first}”: potrzeba co najmniej dwóch odpowiedzi`);
       const right = token.items.filter((item) => item.checked).length;
-      if (right !== 1) fail(lesson, `quiz „${first}…”: dokładnie jedna odpowiedź ma mieć [x], a ma ${right}`);
+      if (right !== 1) fail(`quiz „${first}…”: dokładnie jedna odpowiedź ma mieć [x], a ma ${right}`);
       for (const item of token.items) {
         const [answer, ...explanation] = item.text.split('\n');
-        if (!explanation.join('').trim()) fail(lesson, `quiz, odpowiedź „${answer}”: brak wyjaśnienia we wciętej linijce pod nią`);
+        if (!explanation.join('').trim()) fail(`quiz, odpowiedź „${answer}”: brak wyjaśnienia we wciętej linijce pod nią`);
       }
     });
+  }
+  return ok;
+}
+
+/** A "choice" task is questions: a ```python block, right under it a quiz. Adds choice_checks (code and the [x]
+ * answer) for the validator, which runs the code and compares; several printed lines are written "10, 20, 30". */
+function prepareChoiceTasks(tasks) {
+  let ok = true;
+  for (const task of tasks.filter((t) => t.kind === 'choice')) {
+    const fail = (message) => {
+      console.error(`  ✗ zadanie ${task.slug}: ${message}`);
+      ok = false;
+    };
+    const blocks = new Marked().lexer(task.body_md).filter((t) => t.type !== 'space');
+    task.choice_checks = [];
+    blocks.forEach((token, i) => {
+      if (token.type !== 'list' || !token.items.every((item) => item.task)) return;
+      const code = blocks[i - 1];
+      if (code?.type !== 'code' || !/^(python|py)\b/.test(code.lang ?? '')) return fail('pytanie musi stać zaraz pod blokiem ```python z kodem');
+      const right = token.items.find((item) => item.checked);
+      if (right) task.choice_checks.push({ code: code.text, answer: right.text.split('\n')[0].replaceAll('`', '').trim() });
+    });
+    if (!blocks.some((t) => t.type === 'list' && t.items.every((item) => item.task))) fail('zadanie z wyborem (kind: choice) nie ma żadnego pytania z listą [ ] / [x]');
   }
   return ok;
 }
@@ -122,10 +145,14 @@ let ok = true;
 for (const { course, lessons, tasks, teacherNotes, unusedDrawings } of courses) {
   console.log(`${course.title} (${course.slug}): ${lessons.length} lekcji, ${tasks.length} zadań`);
   if (unusedDrawings.length) console.warn(`  ! rysunki, których nie ma w żadnej lekcji: ${unusedDrawings.join(', ')}`);
+  ok = prepareChoiceTasks(tasks) && ok;
   ok = validate(course.language, tasks, lessons) && ok;
   ok = checkNoteMarkers(lessons, teacherNotes) && ok;
   ok = checkTaskMarkers(lessons, tasks) && ok;
-  ok = checkQuizzes(lessons) && ok;
+  ok = checkQuizzes([
+    ...lessons.map((l) => ({ where: `lekcja ${l.number}`, body_md: l.body_md })),
+    ...tasks.map((t) => ({ where: `zadanie ${t.slug}`, body_md: t.body_md })),
+  ]) && ok;
 }
 if (!ok) {
   console.error('Walidacja nie przeszła, nic nie zostało wgrane.');
