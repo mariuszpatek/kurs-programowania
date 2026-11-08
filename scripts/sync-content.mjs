@@ -202,7 +202,7 @@ for (const { course, lessons, tasks, teacherNotes } of courses) {
   const lessonDraft = new Map((remoteLessons ?? []).map((l) => [l.number, l.draft]));
   const taskDraft = new Map((remoteTasks ?? []).map((t) => [t.slug, t.draft]));
   const lessonRows = lessons.map((l) => ({ ...l, course_id: courseId, draft: lessonDraft.get(l.number) ?? true }));
-  const taskRows = tasks.map(({ solution, bad, teacher_notes, ...t }) => ({
+  const taskRows = tasks.map(({ solution, bad, teacher_notes, choice_checks, ...t }) => ({
     ...t,
     course_id: courseId,
     draft: taskDraft.get(t.slug) ?? lessonDraft.get(t.lesson_number) ?? true,
