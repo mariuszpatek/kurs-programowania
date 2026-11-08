@@ -803,3 +803,96 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- closed question: a checkbox list in lesson Markdown (src/lib/quiz.ts) ---------- */
+
+.quiz {
+  margin: 0 0 20px;
+}
+
+.quiz-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quiz-option {
+  height: auto;
+  min-height: 38px;
+  padding: 6px 14px 6px 6px;
+  white-space: normal;
+  text-align: left;
+  font-family: var(--mono);
+  font-weight: 400;
+}
+
+.quiz-letter {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: var(--sans);
+  font-weight: 600;
+}
+
+.quiz-option.right,
+.quiz-option.right:disabled {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+  color: var(--ok);
+  opacity: 1;
+}
+
+.quiz-option.wrong,
+.quiz-option.wrong:disabled {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+  color: var(--bad);
+  opacity: 1;
+}
+
+.quiz-option.right .quiz-letter {
+  background: var(--ok);
+  color: var(--surface);
+}
+
+.quiz-option.wrong .quiz-letter {
+  background: var(--bad);
+  color: var(--surface);
+}
+
+.quiz-explanation {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--surface-2);
+}
+
+.quiz-explanation.right {
+  border-left-color: var(--ok);
+}
+
+.quiz-explanation.wrong {
+  border-left-color: var(--bad);
+}
+
+.quiz-explanation > :last-child {
+  margin-bottom: 0;
+}
+
+.quiz-verdict {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.quiz-explanation.right .quiz-verdict {
+  color: var(--ok);
+}
+
+.quiz-explanation.wrong .quiz-verdict {
+  color: var(--bad);
+}

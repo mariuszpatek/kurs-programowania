@@ -17,6 +17,8 @@
 // (YouTube, Vimeo) becomes a "Do obejrzenia" card so it does not get lost, and a link to
 // documentation gets a small book icon.
 //
+// A list where every item is a checkbox is a closed question with A) B) C) buttons (src/lib/quiz.ts).
+//
 // Callouts use GitHub's alert syntax:
 //   > [!WARNING]              > [!TIP]                  > [!NOTE]
 //   > Zaznacz „Add to PATH”.  > Skrót: Ctrl+Enter.      > Na stronie input() czyta z pola.
@@ -25,6 +27,7 @@ import { languageByFence } from './languages';
 import { escapeHtml } from './languages/highlight';
 import { mountStepper } from './stepper';
 import { mountDiagrams } from './diagrams';
+import { mountQuizzes, quizHtml, type QuizOption } from './quiz';
 
 const CONSOLE_FENCES: Record<string, { className: string; caption: string }> = {
   output: { className: 'output', caption: 'Wynik' },
@@ -77,6 +80,13 @@ const marked = new Marked({
       const body = `<p>${html.slice(match[0].length)}`.replace(/^<p><\/p>\s*/, '');
       return `<aside class="callout callout-${kind.toLowerCase()}"><p class="callout-title">${CALLOUTS[kind]}</p>${body}</aside>`;
     },
+    list({ items }): string | false {
+      if (items.length < 2 || !items.every((item) => item.task)) return false;
+      return quizHtml(items.map((item): QuizOption => {
+        const [answer, ...explanation] = item.text.split('\n');
+        return { correct: Boolean(item.checked), answer: marked.parseInline(answer, { async: false }), explanation: marked.parse(explanation.join('\n'), { async: false }) };
+      }));
+    },
     code({ text, lang }) {
       const [fence = '', ...flags] = (lang ?? '').trim().split(/\s+/);
       return codeFigure(text, fence, flags);
@@ -103,6 +113,7 @@ export function renderUntrustedMarkdown(md: string): string {
  * With `playground`, runnable examples also get "Zmień i uruchom" (lessons only). Call after inserting rendered HTML. */
 export function enhanceContent(root: HTMLElement, { playground = false } = {}) {
   mountDiagrams(root);
+  mountQuizzes(root);
   for (const figure of root.querySelectorAll<HTMLElement>('figure.code-block.copyable')) {
     const next = figure.nextElementSibling;
     if (next?.matches('figure.code-block.output')) {
