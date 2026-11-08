@@ -80,6 +80,17 @@ Ramki (składnia jak na GitHubie):
 
 Znacznik `<!-- zadanie: 3 -->` w lekcji (na końcu działu) pokazuje w tym miejscu kartę „Sprawdź się” z linkiem do zadania 3 tej lekcji i jego stanem; po zaliczeniu karta robi się zielona. Kilka zadań w jednej karcie: `<!-- zadanie: 3, 4 -->`. Zadania dalej są też na liście pod lekcją. `sync-content` odrzuca znacznik z numerem, którego lekcja nie ma.
 
+Pytanie zamknięte (`src/lib/quiz.ts`) to lista z polami wyboru, `[x]` przy dobrej odpowiedzi; pierwsza linijka punktu to odpowiedź, wcięta linijka pod nią to wyjaśnienie:
+
+```markdown
+- [ ] 9
+  Pętla nie zatrzymuje się, zanim przekroczy 10…
+- [x] 27
+  `x` ma po kolei 1, 3, 9…
+```
+
+Na stronie są z tego przyciski A) B) C)…: zła odpowiedź robi się czerwona i pokazuje swoje wyjaśnienie, dobra zielona i zamyka pytanie. `sync-content` odrzuca quiz bez dokładnie jednego `[x]` albo z odpowiedzią bez wyjaśnienia.
+
 ### Zmień i uruchom (`src/lib/playground.ts`)
 
 Każdy przykład w lekcji w języku, który działa w przeglądarce, ma przycisk „Zmień i uruchom”: karta zamienia się w miejscu w edytor z „Uruchom”, „Krok po kroku” (dla zmienionego kodu) i „Przywróć”. Dane dla `input()` są wypełnione słowami po `krok`. Zmiany zostają tylko w przeglądarce ucznia, nic nie trafia do bazy.

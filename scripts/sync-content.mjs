@@ -14,6 +14,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
+import { Marked } from 'marked';
 import { contentRoot, courseDirs, loadCourse } from './content.mjs';
 
 /** Per-language validator scripts: read { tasks, lessons } as JSON on stdin, exit 1 on problems. */
@@ -84,6 +85,31 @@ function checkTaskMarkers(lessons, tasks) {
   return ok;
 }
 
+/** A checkbox list is a quiz (src/lib/quiz.ts): exactly one [x] and an explanation under every answer. */
+function checkQuizzes(lessons) {
+  let ok = true;
+  const fail = (lesson, message) => {
+    console.error(`  ✗ lekcja ${lesson.number}: ${message}`);
+    ok = false;
+  };
+  for (const lesson of lessons) {
+    const lexer = new Marked();
+    lexer.walkTokens(lexer.lexer(lesson.body_md), (token) => {
+      if (token.type !== 'list' || !token.items.some((item) => item.task)) return;
+      const first = token.items[0].text.split('\n')[0];
+      if (!token.items.every((item) => item.task)) return fail(lesson, `quiz „${first}…”: każdy punkt listy potrzebuje [ ] albo [x]`);
+      if (token.items.length < 2) return fail(lesson, `quiz „${first}”: potrzeba co najmniej dwóch odpowiedzi`);
+      const right = token.items.filter((item) => item.checked).length;
+      if (right !== 1) fail(lesson, `quiz „${first}…”: dokładnie jedna odpowiedź ma mieć [x], a ma ${right}`);
+      for (const item of token.items) {
+        const [answer, ...explanation] = item.text.split('\n');
+        if (!explanation.join('').trim()) fail(lesson, `quiz, odpowiedź „${answer}”: brak wyjaśnienia we wciętej linijce pod nią`);
+      }
+    });
+  }
+  return ok;
+}
+
 let courses;
 try {
   courses = dirs.map(loadCourse);
@@ -99,6 +125,7 @@ for (const { course, lessons, tasks, teacherNotes, unusedDrawings } of courses) 
   ok = validate(course.language, tasks, lessons) && ok;
   ok = checkNoteMarkers(lessons, teacherNotes) && ok;
   ok = checkTaskMarkers(lessons, tasks) && ok;
+  ok = checkQuizzes(lessons) && ok;
 }
 if (!ok) {
   console.error('Walidacja nie przeszła, nic nie zostało wgrane.');
