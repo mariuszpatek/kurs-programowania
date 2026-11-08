@@ -359,17 +359,116 @@ def _render(source_line, done, start, end):
     return text + source_line[cursor:], at
 
 
+FLOW_MAX_BLOCKS = 40
+_SIMPLE_STATEMENTS = (ast.Expr, ast.Assign, ast.AugAssign, ast.AnnAssign, ast.Pass, ast.Import, ast.ImportFrom, ast.Assert, ast.Delete)
+
+
+class _NoFlowchart(Exception):
+    """The program uses something the flowchart cannot draw yet."""
+
+
+def flowchart(code):
+    """The program as nested blocks for the flowchart in "Krok po kroku", or None when it cannot be
+    drawn (try, with, class, match, nested def, decorators, else after a loop, too many blocks).
+
+    Blocks: stmt (line, text, io: "in"/"out"/None, calls), if (branches: line, test or None for else,
+    body), while (test, body), for (target, iter, body), break, continue, return (text, calls).
+    `calls` lists the student's own functions called on that line."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    lines = code.splitlines()
+    names = {s.name for s in tree.body if isinstance(s, ast.FunctionDef) and not s.decorator_list}
+    count = [0]
+
+    def text(node):
+        return ast.get_source_segment(code, node) or ""
+
+    def calls(node):
+        found = []
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name) and sub.func.id in names and sub.func.id not in found:
+                found.append(sub.func.id)
+        return found
+
+    def else_line(orelse):
+        n = orelse[0].lineno
+        while n > 1 and not lines[n - 1].strip().startswith("else"):
+            n -= 1
+        return n
+
+    def body(statements):
+        out = []
+        for statement in statements:
+            item = block(statement)
+            last = out[-1] if out else None
+            if item["kind"] == "stmt" and last and last["kind"] == "stmt" and last["line"] == item["line"]:
+                last["calls"] += [c for c in item["calls"] if c not in last["calls"]]
+                count[0] -= 1
+                continue
+            out.append(item)
+        return out
+
+    def block(statement):
+        count[0] += 1
+        if count[0] > FLOW_MAX_BLOCKS:
+            raise _NoFlowchart()
+        line = statement.lineno
+        if isinstance(statement, _SIMPLE_STATEMENTS):
+            source = lines[line - 1].strip()
+            io = "in" if "input(" in source else "out" if source.startswith("print(") else None
+            return {"kind": "stmt", "line": line, "text": source, "io": io, "calls": calls(statement)}
+        if isinstance(statement, ast.If):
+            branches, node = [], statement
+            while True:
+                branches.append({"line": node.lineno, "test": text(node.test), "body": body(node.body)})
+                orelse = node.orelse
+                if len(orelse) == 1 and isinstance(orelse[0], ast.If) and lines[orelse[0].lineno - 1].strip().startswith("elif"):
+                    node = orelse[0]
+                    continue
+                if orelse:
+                    branches.append({"line": else_line(orelse), "test": None, "body": body(orelse)})
+                return {"kind": "if", "line": line, "branches": branches}
+        if isinstance(statement, (ast.While, ast.For)) and statement.orelse:
+            raise _NoFlowchart()
+        if isinstance(statement, ast.While):
+            return {"kind": "while", "line": line, "test": text(statement.test), "body": body(statement.body)}
+        if isinstance(statement, ast.For):
+            return {"kind": "for", "line": line, "target": text(statement.target), "iter": text(statement.iter), "body": body(statement.body)}
+        if isinstance(statement, ast.Break):
+            return {"kind": "break", "line": line}
+        if isinstance(statement, ast.Continue):
+            return {"kind": "continue", "line": line}
+        if isinstance(statement, ast.Return):
+            return {"kind": "return", "line": line, "text": text(statement.value) if statement.value else "", "calls": calls(statement)}
+        raise _NoFlowchart()
+
+    try:
+        functions = {}
+        for statement in tree.body:
+            if isinstance(statement, ast.FunctionDef) and statement.name in names:
+                count[0] += 1
+                functions[statement.name] = {"line": statement.lineno, "params": ast.unparse(statement.args), "body": body(statement.body)}
+        main = body([s for s in tree.body if not (isinstance(s, ast.FunctionDef) and s.name in names)])
+        return {"main": main, "functions": functions}
+    except _NoFlowchart:
+        return None
+
+
 def trace(code, stdin=""):
     """"Step by step" view of a lesson example: the state after every executed line.
 
     Each step: the line just executed (None before the start), variables, output so far,
     an error if the program stopped on that line, and `parts`: how the line was computed,
-    value by value (for "Dokładnie", like Thonny's step into).
+    value by value (for "Dokładnie", like Thonny's step into); `frame`, `locals`, `depth`: the
+    student's function the line belongs to (None for the program), its variables and how deep the
+    call is. `flow`: the program as blocks for the flowchart, see flowchart().
     """
     out = _Output()
     namespace = _student_namespace(stdin, out)
     steps = []
-    previous = [None]
+    previous = [None, None, 0]  # the line just executed, its frame and its call depth (0: the program)
     events = []
     source_lines = code.splitlines()
 
@@ -382,19 +481,31 @@ def trace(code, stdin=""):
     namespace["__builtins__"][VALUE_HOOK] = report
 
     def snapshot(error=None):
-        line = previous[0]
+        line, frame, depth = previous
         parts = []
         if line is not None and events and 1 <= line <= len(source_lines):
             parts = _line_parts(source_lines[line - 1], [e for e in events if spans[e[0]][0] == line], spans)
         events.clear()
-        steps.append({"line": line, "variables": _describe_variables(namespace), "output": out.getvalue(), "error": error, "parts": parts})
+        function = frame.f_code.co_name if frame is not None and depth > 0 else None
+        steps.append({
+            "line": line, "variables": _describe_variables(namespace), "output": out.getvalue(), "error": error, "parts": parts,
+            "frame": function, "locals": _describe_variables(frame.f_locals) if function else [], "depth": depth,
+        })
         if len(steps) > MAX_STEPS:
             raise TooManySteps()
+
+    def depth_of(frame):
+        depth = -1
+        while frame is not None:
+            if frame.f_code.co_filename == STUDENT_FILE:
+                depth += 1
+            frame = frame.f_back
+        return depth
 
     def on_line(frame, event, arg):
         if event == "line":
             snapshot()
-            previous[0] = frame.f_lineno
+            previous[:] = [frame.f_lineno, frame, depth_of(frame)]
         return on_line
 
     def on_call(frame, event, arg):
@@ -404,7 +515,7 @@ def trace(code, stdin=""):
     try:
         tree = ast.parse(code, STUDENT_FILE)
     except SyntaxError as exc:
-        return {"steps": [], "error": _describe_error(exc, code)}
+        return {"steps": [], "error": _describe_error(exc, code), "flow": None}
     instrument = _Instrument()
     spans = instrument.spans
     compiled = compile(ast.fix_missing_locations(instrument.visit(tree)), STUDENT_FILE, "exec")
@@ -430,4 +541,4 @@ def trace(code, stdin=""):
     finally:
         sys.settrace(None)
         sys.stdout = real_stdout
-    return {"steps": steps, "error": steps[-1]["error"] if steps else None}
+    return {"steps": steps, "error": steps[-1]["error"] if steps else None, "flow": flowchart(code)}

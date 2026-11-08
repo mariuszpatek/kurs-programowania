@@ -7,12 +7,33 @@
 import { escapeHtml } from './languages/highlight';
 import { TimedOut, type Language, type TracePart, type TraceStep } from './languages/types';
 import { stepControls } from './step-controls';
+import type { FlowProgram } from './flowchart/model';
 
 type Change = { name: string; value: string; before: string | null };
 /** One click of "Dalej": a whole line (part null) or one value computed inside it. */
 type Position = { step: number; part: number | null };
 
 const DETAILED_KEY = 'kurs:stepper-detailed';
+const VIEW_KEY = 'kurs:stepper-view';
+
+/** Teachers see the flowchart first; students once lesson.astro sets data-flowchart="on" for everyone. */
+const flowchartAllowed = () => document.documentElement.dataset.flowchart === 'on';
+
+function loadView(): 'code' | 'flow' {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'flow' ? 'flow' : 'code';
+  } catch {
+    return 'code';
+  }
+}
+
+function saveView(view: 'code' | 'flow') {
+  try {
+    localStorage.setItem(VIEW_KEY, view);
+  } catch {
+    // private mode: the choice is simply not remembered
+  }
+}
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') => {
   const e = document.createElement(tag);
@@ -57,7 +78,7 @@ function lineCaption(steps: TraceStep[], i: number): string {
     const hint = step.error.hint ? ` ${escapeHtml(step.error.hint)}` : '';
     return `Linijka ${step.line} kończy się błędem: ${code(step.error.message)}.${hint}`;
   }
-  const parts = [`Python wykonał linijkę ${step.line}.`];
+  const parts = [`Python wykonał linijkę ${step.line}${step.frame ? ` w funkcji ${code(step.frame)}` : ''}.`];
   for (const c of changes(steps[i - 1], step)) {
     parts.push(
       c.before === null
@@ -83,15 +104,32 @@ function partCaption(line: number, part: TracePart): string {
   return `Linijka ${line}: ${code(part.before)} daje ${code(part.value)}.`;
 }
 
-function variablesView(current: TraceStep, previous: TraceStep | undefined): HTMLElement[] {
-  if (!current.variables.length) return [el('p', 'stepper-empty', 'Jeszcze nie ma żadnych zmiennych.')];
-  const changed = new Map(changes(previous, current).map((c) => [c.name, c.before === null ? 'new' : 'changed']));
-  return current.variables.map((v) => {
-    const row = el('div', `stepper-var type-${['str', 'int', 'float', 'bool'].includes(v.type) ? v.type : 'other'} ${changed.get(v.name) ?? ''}`);
+type Var = { name: string; type: string; value: string };
+
+function varRows(vars: Var[], old: Var[] | undefined): HTMLElement[] {
+  const before = new Map((old ?? []).map((v) => [v.name, v.value]));
+  return vars.map((v) => {
+    const kind = !before.has(v.name) ? 'new' : before.get(v.name) !== v.value ? 'changed' : '';
+    const row = el('div', `stepper-var type-${['str', 'int', 'float', 'bool'].includes(v.type) ? v.type : 'other'} ${old ? kind : ''}`);
     row.dataset.name = v.name;
     row.append(el('span', 'var-name', v.name), el('span', 'var-value', v.value), el('span', 'var-type', v.type));
     return row;
   });
+}
+
+/** The program's variables; inside one of the student's functions, that function's variables first. */
+function variablesView(current: TraceStep, previous: TraceStep | undefined): HTMLElement[] {
+  const program = varRows(current.variables, previous?.variables);
+  if (current.frame) {
+    const sameCall = previous?.frame === current.frame && previous?.depth === current.depth;
+    return [
+      el('p', 'stepper-group', `w funkcji ${current.frame}`),
+      ...varRows(current.locals ?? [], sameCall ? previous?.locals : []),
+      el('p', 'stepper-group', 'w programie'),
+      ...(program.length ? program : [el('p', 'stepper-empty', 'Brak zmiennych.')]),
+    ];
+  }
+  return program.length ? program : [el('p', 'stepper-empty', 'Jeszcze nie ma żadnych zmiennych.')];
 }
 
 /** The line being computed: plain text with the newest value marked. */
@@ -159,6 +197,17 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
 
   const body = el('div', 'stepper-body');
   body.append(codeList, state);
+  const flowHost = el('div', 'stepper-flow');
+  flowHost.hidden = true;
+  body.insertBefore(flowHost, state);
+  const views = el('div', 'stepper-views');
+  views.hidden = true;
+  const codeButton = el('button', '', 'Kod');
+  const flowButton = el('button', '', 'Schemat');
+  for (const b of [codeButton, flowButton]) b.type = 'button';
+  views.append(codeButton, flowButton);
+  let chart: { element: HTMLElement; show(i: number, animate: boolean): void } | null = null;
+  let flow: FlowProgram | null = null;
 
   const text = el('p', 'stepper-caption');
   text.setAttribute('aria-live', 'polite');
@@ -169,7 +218,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   detail.append(detailBox, ' Pokaż liczenie w linijce');
   const controls = stepControls((to) => go(to), root, [detail]);
 
-  root.append(body, text, controls.element);
+  root.append(views, body, text, controls.element);
   anchor.after(root);
 
   let steps: TraceStep[] = [];
@@ -189,6 +238,29 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
     li.querySelector('code')!.innerHTML = html ?? highlighted[n];
     li.querySelector('.line-tag')!.textContent = tag;
   }
+
+  async function setView(view: 'code' | 'flow') {
+    if (view === 'flow' && !chart && flow) {
+      const [{ layout }, { progress }, { mountFlowchart }] = await Promise.all([
+        import('./flowchart/layout'),
+        import('./flowchart/progress'),
+        import('./flowchart/render'),
+      ]);
+      const charts = layout(flow);
+      chart = mountFlowchart(charts, progress(charts, steps));
+      flowHost.append(chart.element);
+    }
+    const onFlow = view === 'flow' && Boolean(chart);
+    codeList.hidden = onFlow;
+    flowHost.hidden = !onFlow;
+    body.classList.toggle('on-flow', onFlow);
+    codeButton.setAttribute('aria-pressed', String(!onFlow));
+    flowButton.setAttribute('aria-pressed', String(onFlow));
+    saveView(view);
+    if (onFlow && positions.length) chart!.show(positions[at].step, false);
+  }
+  codeButton.addEventListener('click', () => setView('code'));
+  flowButton.addEventListener('click', () => setView('flow'));
 
   function render(forward = false) {
     const { step: i, part } = positions[at];
@@ -216,6 +288,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
         flyValues(root, lineItems[step.line - 1].querySelector('code')!, vars, changes(steps[i - 1], step));
       }
     }
+    if (chart && !flowHost.hidden) chart.show(i, forward && part === null);
     controls.update(at, positions.length);
   }
 
@@ -245,6 +318,11 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
       steps = result.steps;
       layout();
       go(0);
+      flow = result.flow ?? null;
+      if (flow && flowchartAllowed()) {
+        views.hidden = false;
+        void setView(loadView());
+      }
       root.focus({ preventScroll: true });
     })
     .catch((err) => {

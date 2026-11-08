@@ -670,6 +670,40 @@ blockquote {
   font-style: italic;
 }
 
+/* ---------- answers to reveal: <details><summary>Pokaż wynik</summary> in lesson Markdown ---------- */
+
+.prose details:not(.teacher-notes) {
+  margin: 0 0 20px;
+}
+
+.prose details:not(.teacher-notes) > summary {
+  display: inline-block;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.prose details:not(.teacher-notes) > summary::-webkit-details-marker {
+  display: none;
+}
+
+.prose details:not(.teacher-notes) > summary::before {
+  content: '▸ ';
+}
+
+.prose details[open]:not(.teacher-notes) > summary {
+  margin-bottom: 12px;
+}
+
+.prose details[open]:not(.teacher-notes) > summary::before {
+  content: '▾ ';
+}
+
 /* ---------- tables ---------- */
 
 .table-wrap,
