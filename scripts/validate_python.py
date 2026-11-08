@@ -3,9 +3,11 @@
 Reads {"tasks": [...], "lessons": [...]} as JSON on stdin (written by sync-content.mjs for Python courses).
 - Tasks: the reference solution must pass every test (or, for "predict" tasks, match the real output),
   and every "bad" solution must fail at least one test, so the tests really catch that mistake.
+  In "choice" tasks the [x] answer of every question must be what its code prints.
 - Lessons: every ```python example must compile (except ```python błąd, a syntax error shown on purpose),
   and every ```python krok example must run in the
   "step by step" view (an error at runtime is fine: lessons show errors on purpose).
+  A ```python schemat example (the same view, opened on the flowchart) must also be one the flowchart can draw.
 - Spoilers (warning only): a lesson example that repeats two lines of a task's reference solution in a row.
 Prints a report and exits with 1 when anything is wrong.
 """
@@ -32,6 +34,17 @@ def validate(task):
 
     if task["kind"] == "local":
         return [f"{slug}: zadanie local nie może mieć testów (robi się je na komputerze)"] if task["tests"] else []
+
+    if task["kind"] == "choice":
+        for i, question in enumerate(task.get("choice_checks", []), 1):
+            result = checker.compare_prediction(question["code"], "")
+            printed = ", ".join(line["actual"].strip() for line in result["lines"] if line["actual"] is not None)
+            if result["error"]:
+                problems.append(f"{slug}, pytanie {i}: kod kończy się błędem: {result['error']['message']}")
+            elif printed != question["answer"]:
+                problems.append(f"{slug}, pytanie {i}: dobra odpowiedź to „{question['answer']}”, a program wypisuje „{printed}”")
+        return problems
+
     if not task["tests"]:
         return []
     if task.get("solution") is None:
@@ -66,12 +79,14 @@ def validate_lesson(lesson):
         except SyntaxError as exc:
             problems.append(f"{where}: błąd składni: {exc.msg} (linijka {exc.lineno})")
             continue
-        if flags[:1] == ["krok"]:
+        if flags[:1] in (["krok"], ["schemat"]):
             result = checker.trace(code, "\n".join(flags[1:]))
             if result["error"] and result["error"]["type"] == "TooManySteps":
                 problems.append(f"{where}: „krok po kroku” ma ponad {checker.MAX_STEPS} kroków")
             elif result["error"] and result["error"]["type"] == "EOFError":
-                problems.append(f"{where}: input() nie ma odpowiedzi, dopisz je po słowie krok (```python krok 16)")
+                problems.append(f"{where}: input() nie ma odpowiedzi, dopisz je po słowie {flags[0]} (```python {flags[0]} 16)")
+            if flags[0] == "schemat" and checker.flowchart(code) is None:
+                problems.append(f"{where}: schemat tego nie narysuje (try, klasy… albo ponad {checker.FLOW_MAX_BLOCKS} bloków), zostaw ```python krok")
     return problems
 
 
@@ -105,7 +120,7 @@ def main():
     data = json.load(sys.stdin)
     tasks, lessons = (data, []) if isinstance(data, list) else (data["tasks"], data.get("lessons", []))
     problems = [p for task in tasks for p in validate(task)] + [p for lesson in lessons for p in validate_lesson(lesson)]
-    checked = sum(1 for t in tasks if t["tests"] or t["kind"] == "predict")
+    checked = sum(1 for t in tasks if t["tests"] or t["kind"] in ("predict", "choice"))
     bad = sum(len(t.get("bad", [])) for t in tasks)
     examples = sum(len(lesson_examples(lesson)) for lesson in lessons)
     for warning in spoilers(tasks, lessons):

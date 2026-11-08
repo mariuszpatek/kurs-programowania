@@ -24,7 +24,7 @@ python-podstawy/
   lessons/01.md                     frontmatter: number, title, topics
   lessons/01.teacher.md             notatki tylko dla nauczyciela (plan, pytania, notatki przy fragmentach lekcji)
   lessons/img/nazwa.svg             rysunki; generator: lessons/img/_rysunki.py
-  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict | local), in_class?, starter_code?, predict_code?, hints?
+  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict | local | choice), in_class?, starter_code?, predict_code?, hints?
   tasks/01/01-nazwa.teacher.md      rozwiązanie z wyjaśnieniem, tylko dla nauczyciela
   tasks/01/01-nazwa.test.py         testy: funkcje test_*(ctx)
   solutions/01/01-nazwa.py          wzorcowe rozwiązanie (dla predict: .txt z oczekiwanym wynikiem)
@@ -82,6 +82,21 @@ Ramki (składnia jak na GitHubie):
 
 Znacznik `<!-- zadanie: 3 -->` w lekcji (na końcu działu) pokazuje w tym miejscu kartę „Sprawdź się” z linkiem do zadania 3 tej lekcji i jego stanem; po zaliczeniu karta robi się zielona. Kilka zadań w jednej karcie: `<!-- zadanie: 3, 4 -->`. Zadania dalej są też na liście pod lekcją. `sync-content` odrzuca znacznik z numerem, którego lekcja nie ma.
 
+Pytanie zamknięte (`src/lib/quiz.ts`) to lista z polami wyboru, `[x]` przy dobrej odpowiedzi; pierwsza linijka punktu to odpowiedź, wcięta linijka pod nią to wyjaśnienie:
+
+```markdown
+- [ ] 9
+  Pętla nie zatrzymuje się, zanim przekroczy 10…
+- [x] 27
+  `x` ma po kolei 1, 3, 9…
+```
+
+Na stronie są z tego przyciski A) B) C)…: zła odpowiedź robi się czerwona i pokazuje swoje wyjaśnienie, dobra zielona i zamyka pytanie. `sync-content` odrzuca quiz bez dokładnie jednego `[x]` albo z odpowiedzią bez wyjaśnienia.
+
+Zadanie `kind: choice` to kilka takich pytań w treści zadania: blok ```` ```python ```` i zaraz pod nim lista z odpowiedziami. Edytora nie ma; zadanie zalicza się, gdy każde pytanie ma dobrą odpowiedź, a każde kliknięcie zapisuje się jako próba (podpowiedzi, panel). Pliku w `solutions/` nie ma: `sync-content` uruchamia kod pytania i sprawdza, że wypisuje to, co odpowiedź z `[x]` (kilka linijek po przecinku: `10, 20, 30`). Wymaga migracji `20261108000000_lms_task_choice.sql`.
+
+Pod „Krok po kroku”, schematem i rysunkami jest suwak „Tempo” dla „Odtwórz” (`src/lib/step-controls.ts`), zapamiętywany w przeglądarce.
+
 ### Zmień i uruchom (`src/lib/playground.ts`)
 
 Każdy przykład w lekcji w języku, który działa w przeglądarce, ma przycisk „Zmień i uruchom”: karta zamienia się w miejscu w edytor z „Uruchom”, „Krok po kroku” (dla zmienionego kodu) i „Przywróć”. Dane dla `input()` są wypełnione słowami po `krok`. Zmiany zostają tylko w przeglądarce ucznia, nic nie trafia do bazy.
@@ -89,6 +104,8 @@ Każdy przykład w lekcji w języku, który działa w przeglądarce, ma przycisk
 ### Krok po kroku (`src/lib/stepper.ts`)
 
 Przykład ```` ```python krok ```` uruchamia się w przeglądarce (`checker.trace`): po każdej linijce widać zmienne z typami i to, co jest na ekranie. Z „Pokaż liczenie w linijce” każda linijka rozkłada się na wartości, jak „step into” w Thonny (`age = int('16')` → `age = 16`). Przyciski Wstecz / Dalej / Odtwórz są wspólne z rysunkami (`src/lib/step-controls.ts`).
+
+Widok „Schemat” (`src/lib/flowchart/`): `checker.flowchart` zamienia kod na bloki, `layout.ts` układa schemat blokowy (program i osobno każda funkcja), `progress.ts` wylicza z kroków bieżący blok, wybraną strzałkę, wartość warunku i obroty pętli, a `render.ts` rysuje SVG. Kod, którego schemat nie zna (`try`, klasy…) albo ponad 40 bloków: przełącznika nie ma. Widzą go wszyscy; tylko nauczyciel: `FLOWCHARTS_FOR_STUDENTS = false` w `src/pages/lesson.astro`. Przykład ```` ```python schemat ```` otwiera kroki sam, od razu na schemacie, gdy czytelnik dojdzie do niego w lekcji (Python ładuje się dopiero wtedy); `sync-content` odrzuca taki przykład, jeśli schemat go nie narysuje.
 
 ### Rysunki (`src/lib/diagrams.ts`)
 

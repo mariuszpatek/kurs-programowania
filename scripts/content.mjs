@@ -10,6 +10,8 @@
 //   <course>/tasks/01/01-name.md      frontmatter: title, number, kind (code | predict | local), in_class?, starter_code?, predict_code?, hints?
 //                                     local: done on the student's computer, no tests; the student hands in a link or a description
 //                                     hints: list of graded hints, the student opens them after failed checks
+//                                     kind: code (default), predict, or choice: ```python blocks, each with a
+//                                     quiz under it (src/lib/quiz.ts); no solution file
 //   <course>/tasks/01/01-name.teacher.md  solution and explanation for the teacher only; optional
 //
 // Whether a lesson is published is not in these files: the teacher publishes it in the dashboard.
@@ -105,7 +107,7 @@ export function loadCourse(dir) {
       const name = basename(f, '.md');
       const { meta, body } = frontmatter(read(join(dir, 'tasks', lessonFolder, f)), f);
       const kind = meta.kind ?? 'code';
-      if (!['code', 'predict', 'local'].includes(kind)) throw new Error(`${f}: kind must be code, predict or local`);
+      if (!['code', 'predict', 'local', 'choice'].includes(kind)) throw new Error(`${f}: kind must be code, predict, local or choice`);
       const hints = meta.hints ?? [];
       if (!Array.isArray(hints) || hints.some((h) => typeof h !== 'string' || !h.trim())) {
         throw new Error(`${f}: hints must be a list of non-empty texts`);

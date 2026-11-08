@@ -8,6 +8,8 @@
 //   ```         plain text (e.g. a prompt to copy): with a Copy button
 //   ```python krok        code with a "Krok po kroku" button (src/lib/stepper.ts);
 //   ```python krok 16 Ola  words after "krok" are the answers for input()
+//   ```python schemat      the same, but the steps open by themselves on the flowchart once the reader
+//                          scrolls to the example (answers for input() after "schemat" too)
 //   ```python błąd         a syntax error shown on purpose (sync-content does not try to compile it)
 // In lessons every example in a language that runs in the browser also gets "Zmień i uruchom"
 // (src/lib/playground.ts): the example opens as an editor in place.
@@ -17,6 +19,8 @@
 // (YouTube, Vimeo) becomes a "Do obejrzenia" card so it does not get lost, and a link to
 // documentation gets a small book icon.
 //
+// A list where every item is a checkbox is a closed question with A) B) C) buttons (src/lib/quiz.ts).
+//
 // Callouts use GitHub's alert syntax:
 //   > [!WARNING]              > [!TIP]                  > [!NOTE]
 //   > Zaznacz „Add to PATH”.  > Skrót: Ctrl+Enter.      > Na stronie input() czyta z pola.
@@ -25,6 +29,7 @@ import { languageByFence } from './languages';
 import { escapeHtml } from './languages/highlight';
 import { mountStepper } from './stepper';
 import { mountDiagrams } from './diagrams';
+import { mountQuizzes, quizHtml, type QuizOption } from './quiz';
 
 const CONSOLE_FENCES: Record<string, { className: string; caption: string }> = {
   output: { className: 'output', caption: 'Wynik' },
@@ -39,11 +44,12 @@ function codeFigure(text: string, fence: string, flags: string[] = []): string {
   const language = languageByFence(fence);
   const body = language ? language.highlight(text) : escapeHtml(text);
   const caption = language?.label ?? (fence ? escapeHtml(fence) : 'Tekst');
-  const steppable = flags[0] === 'krok' && language?.runner?.trace;
+  const stepFlag = flags[0] === 'krok' || flags[0] === 'schemat';
+  const steppable = stepFlag && language?.runner?.trace;
   const runnable = Boolean(language?.runner);
-  const stdin = flags[0] === 'krok' ? flags.slice(1).join('\n') : '';
+  const stdin = stepFlag ? flags.slice(1).join('\n') : '';
   const attrs = runnable ? ` data-fence="${escapeHtml(fence)}" data-stdin="${escapeHtml(stdin)}"` : '';
-  const classes = `${runnable ? ' runnable' : ''}${steppable ? ' steppable' : ''}`;
+  const classes = `${runnable ? ' runnable' : ''}${steppable ? ' steppable' : ''}${steppable && flags[0] === 'schemat' ? ' flow-first' : ''}`;
   return `<figure class="code-block copyable${classes}"${attrs}><figcaption>${caption}</figcaption><pre><code>${body}</code></pre></figure>`;
 }
 
@@ -77,6 +83,13 @@ const marked = new Marked({
       const body = `<p>${html.slice(match[0].length)}`.replace(/^<p><\/p>\s*/, '');
       return `<aside class="callout callout-${kind.toLowerCase()}"><p class="callout-title">${CALLOUTS[kind]}</p>${body}</aside>`;
     },
+    list({ items }): string | false {
+      if (items.length < 2 || !items.every((item) => item.task)) return false;
+      return quizHtml(items.map((item): QuizOption => {
+        const [answer, ...explanation] = item.text.split('\n');
+        return { correct: Boolean(item.checked), answer: marked.parseInline(answer, { async: false }), explanation: marked.parse(explanation.join('\n'), { async: false }) };
+      }));
+    },
     code({ text, lang }) {
       const [fence = '', ...flags] = (lang ?? '').trim().split(/\s+/);
       return codeFigure(text, fence, flags);
@@ -103,6 +116,7 @@ export function renderUntrustedMarkdown(md: string): string {
  * With `playground`, runnable examples also get "Zmień i uruchom" (lessons only). Call after inserting rendered HTML. */
 export function enhanceContent(root: HTMLElement, { playground = false } = {}) {
   mountDiagrams(root);
+  mountQuizzes(root);
   for (const figure of root.querySelectorAll<HTMLElement>('figure.code-block.copyable')) {
     const next = figure.nextElementSibling;
     if (next?.matches('figure.code-block.output')) {
@@ -160,15 +174,26 @@ function addStepButton(figure: HTMLElement) {
   const pair = figure.closest<HTMLElement>('.code-pair');
   // while the steps are open the player shows the code, so the plain listing (and its output) steps aside
   const listing = [figure.querySelector('pre')!, ...(pair ? [pair.querySelector<HTMLElement>('.code-block.output')!] : [])];
-  button.addEventListener('click', () => {
+  const flowFirst = figure.matches('.flow-first');
+  const toggle = () => {
     if (player) {
       player.hidden = !player.hidden;
     } else {
       const source = figure.querySelector('pre')!.textContent ?? '';
-      player = mountStepper(pair ?? figure, source, language, figure.dataset.stdin ?? '');
+      player = mountStepper(pair ?? figure, source, language, figure.dataset.stdin ?? '', flowFirst ? { view: 'flow', focus: false } : {});
     }
     for (const part of listing) part.hidden = !player.hidden;
     button.textContent = player.hidden ? 'Krok po kroku' : 'Ukryj kroki';
-  });
+  };
+  button.addEventListener('click', toggle);
   figure.querySelector('figcaption .copy')!.before(button);
+  if (flowFirst) {
+    // Python loads only when the reader gets near the example, not with the whole lesson
+    const seen = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      seen.disconnect();
+      if (!player) toggle();
+    }, { rootMargin: '200px 0px' });
+    seen.observe(figure);
+  }
 }

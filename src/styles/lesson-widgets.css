@@ -326,6 +326,19 @@
   gap: 8px;
 }
 
+.stepper-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.stepper-speed input {
+  width: 84px;
+  accent-color: var(--accent);
+}
+
 .stepper-count {
   min-width: 7.5em;
   text-align: center;
@@ -644,4 +657,255 @@
   .playground-actions button {
     padding: 0 10px;
   }
+}
+
+/* ---------- flowchart in "Krok po kroku" (src/lib/flowchart) ---------- */
+
+.stepper-views {
+  display: inline-flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.stepper-views button {
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-2);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.stepper-views button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.stepper-flow {
+  min-width: 0;
+}
+
+.flowchart {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.flowchart-chart {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.flowchart-chart figcaption {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.flowchart svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.flowchart .fc-node > rect,
+.flowchart .fc-node > polygon {
+  fill: var(--surface-2);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+  transition: fill 0.2s, stroke 0.2s;
+}
+
+.flowchart .fc-terminal > rect {
+  fill: var(--surface);
+}
+
+.flowchart .fc-text {
+  fill: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.flowchart .fc-terminal .fc-text {
+  font-family: var(--sans);
+  fill: var(--text-2);
+}
+
+.flowchart .fc-current > rect,
+.flowchart .fc-current > polygon {
+  fill: var(--accent-bg);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.flowchart .fc-error > rect,
+.flowchart .fc-error > polygon {
+  fill: var(--bad-bg);
+  stroke: var(--bad);
+}
+
+.flowchart .fc-call {
+  fill: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.flowchart .fc-edge polyline {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.flowchart .fc-head {
+  fill: var(--line-strong);
+}
+
+.flowchart .fc-label {
+  fill: var(--text-3);
+  font-size: 12px;
+}
+
+.flowchart .fc-chosen polyline {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.flowchart .fc-chosen .fc-head,
+.flowchart .fc-chosen .fc-label {
+  fill: var(--accent);
+}
+
+.flowchart .fc-badge rect {
+  fill: var(--accent);
+}
+
+.flowchart .fc-badge text {
+  fill: var(--surface);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.flowchart .fc-dot {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.stepper-group {
+  margin: 8px 0 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.stepper-body.on-flow {
+  grid-template-columns: minmax(0, 1.7fr) minmax(200px, 1fr);
+}
+
+@media (max-width: 720px) {
+  .stepper-body.on-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- closed question: a checkbox list in lesson Markdown (src/lib/quiz.ts) ---------- */
+
+.quiz {
+  margin: 0 0 20px;
+}
+
+.quiz-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quiz-option {
+  height: auto;
+  min-height: 38px;
+  padding: 6px 14px 6px 6px;
+  white-space: normal;
+  text-align: left;
+  font-family: var(--mono);
+  font-weight: 400;
+}
+
+.quiz-letter {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: var(--sans);
+  font-weight: 600;
+}
+
+.quiz-option.right,
+.quiz-option.right:disabled {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+  color: var(--ok);
+  opacity: 1;
+}
+
+.quiz-option.wrong,
+.quiz-option.wrong:disabled {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+  color: var(--bad);
+  opacity: 1;
+}
+
+.quiz-option.right .quiz-letter {
+  background: var(--ok);
+  color: var(--surface);
+}
+
+.quiz-option.wrong .quiz-letter {
+  background: var(--bad);
+  color: var(--surface);
+}
+
+.quiz-explanation {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--surface-2);
+}
+
+.quiz-explanation.right {
+  border-left-color: var(--ok);
+}
+
+.quiz-explanation.wrong {
+  border-left-color: var(--bad);
+}
+
+.quiz-explanation > :last-child {
+  margin-bottom: 0;
+}
+
+.quiz-verdict {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.quiz-explanation.right .quiz-verdict {
+  color: var(--ok);
+}
+
+.quiz-explanation.wrong .quiz-verdict {
+  color: var(--bad);
 }

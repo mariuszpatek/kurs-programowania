@@ -229,5 +229,70 @@ class Trace(unittest.TestCase):
         self.assertEqual(result["error"]["type"], "TooManySteps")
 
 
+class Flowchart(unittest.TestCase):
+    def test_sequence_and_io(self):
+        flow = checker.flowchart('a = input("? ")\nprint(a)\n')
+        self.assertEqual(flow["main"], [
+            {"kind": "stmt", "line": 1, "text": 'a = input("? ")', "io": "in", "calls": []},
+            {"kind": "stmt", "line": 2, "text": "print(a)", "io": "out", "calls": []},
+        ])
+        self.assertEqual(flow["functions"], {})
+
+    def test_if_elif_else(self):
+        code = 'x = 5\nif x > 3:\n    print("a")\nelif x > 1:\n    print("b")\nelse:\n    print("c")\n'
+        branches = checker.flowchart(code)["main"][1]["branches"]
+        self.assertEqual([b["test"] for b in branches], ["x > 3", "x > 1", None])
+        self.assertEqual([b["line"] for b in branches], [2, 4, 6])
+        self.assertEqual(branches[2]["body"][0]["line"], 7)
+
+    def test_else_with_if_inside_is_not_elif(self):
+        code = "x = 1\nif x:\n    pass\nelse:\n    if x:\n        pass\n"
+        branches = checker.flowchart(code)["main"][1]["branches"]
+        self.assertEqual([b["test"] for b in branches], ["x", None])
+        self.assertEqual(branches[1]["body"][0]["kind"], "if")
+
+    def test_loops_and_jumps(self):
+        code = "n = 0\nwhile n < 5:\n    n += 1\n    if n == 2:\n        continue\n    if n == 4:\n        break\nfor w in ['a', 'b']:\n    print(w)\n"
+        main = checker.flowchart(code)["main"]
+        self.assertEqual(main[1]["kind"], "while")
+        self.assertEqual(main[1]["test"], "n < 5")
+        self.assertEqual(main[1]["body"][1]["branches"][0]["body"], [{"kind": "continue", "line": 5}])
+        self.assertEqual(main[1]["body"][2]["branches"][0]["body"], [{"kind": "break", "line": 7}])
+        self.assertEqual((main[2]["kind"], main[2]["target"], main[2]["iter"]), ("for", "w", "['a', 'b']"))
+
+    def test_functions(self):
+        code = "def double(n):\n    return n * 2\ny = double(3)\n"
+        flow = checker.flowchart(code)
+        self.assertEqual(flow["functions"], {"double": {"line": 1, "params": "n", "body": [
+            {"kind": "return", "line": 2, "text": "n * 2", "calls": []}]}})
+        self.assertEqual(flow["main"], [{"kind": "stmt", "line": 3, "text": "y = double(3)", "io": None, "calls": ["double"]}])
+
+    def test_two_statements_on_one_line_are_one_block(self):
+        self.assertEqual(len(checker.flowchart("a = 1; b = 2\n")["main"]), 1)
+
+    def test_what_cannot_be_drawn(self):
+        for code in ("try:\n    x = 1\nexcept Exception:\n    pass\n",
+                     "while False:\n    pass\nelse:\n    pass\n",
+                     "def f():\n    def g():\n        pass\n",
+                     "class A:\n    pass\n",
+                     "\n".join(f"a{i} = {i}" for i in range(41)) + "\n",
+                     'print("a)\n'):
+            self.assertIsNone(checker.flowchart(code), code)
+
+    def test_trace_has_flow(self):
+        self.assertEqual(checker.trace("a = 1\n")["flow"]["main"][0]["text"], "a = 1")
+
+    def test_steps_know_the_function(self):
+        code = "def double(n):\n    r = n * 2\n    return r\ny = double(3)\nprint(y)\n"
+        steps = checker.trace(code)["steps"]
+        inside = [s for s in steps if s["frame"] == "double"]
+        self.assertEqual([s["line"] for s in inside], [2, 3])
+        self.assertEqual(inside[0]["locals"], [{"name": "n", "type": "int", "value": "3"}, {"name": "r", "type": "int", "value": "6"}])
+        self.assertEqual(inside[0]["depth"], 1)
+        outside = [s for s in steps if s["frame"] is None]
+        self.assertTrue(all(s["locals"] == [] and s["depth"] == 0 for s in outside))
+        self.assertEqual(steps[-1]["line"], 5)
+
+
 if __name__ == "__main__":
     unittest.main()
