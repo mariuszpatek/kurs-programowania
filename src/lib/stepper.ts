@@ -174,8 +174,12 @@ function flyValues(root: HTMLElement, from: HTMLElement, vars: HTMLElement, flyi
   });
 }
 
+/** Options for an example that opens by itself (```python schemat): the view to start on, whatever the reader
+ * picked last time, and no focus, since the reader did not click anything. */
+type StepperOptions = { view?: 'code' | 'flow'; focus?: boolean };
+
 /** Builds the player under `anchor` and records the program. */
-export function mountStepper(anchor: HTMLElement, source: string, language: Language, stdin: string): HTMLElement {
+export function mountStepper(anchor: HTMLElement, source: string, language: Language, stdin: string, options: StepperOptions = {}): HTMLElement {
   const root = el('section', 'stepper');
   root.setAttribute('aria-label', 'Program krok po kroku');
   root.tabIndex = -1;
@@ -239,7 +243,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
     li.querySelector('.line-tag')!.textContent = tag;
   }
 
-  async function setView(view: 'code' | 'flow') {
+  async function setView(view: 'code' | 'flow', remember = true) {
     if (view === 'flow' && !chart && flow) {
       const [{ layout }, { progress }, { mountFlowchart }] = await Promise.all([
         import('./flowchart/layout'),
@@ -256,7 +260,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
     body.classList.toggle('on-flow', onFlow);
     codeButton.setAttribute('aria-pressed', String(!onFlow));
     flowButton.setAttribute('aria-pressed', String(onFlow));
-    saveView(view);
+    if (remember) saveView(view);
     if (onFlow && positions.length) chart!.show(positions[at].step, false);
   }
   codeButton.addEventListener('click', () => setView('code'));
@@ -319,11 +323,11 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
       layout();
       go(0);
       flow = result.flow ?? null;
-      if (flow && flowchartAllowed()) {
+      if (flow && (options.view === 'flow' || flowchartAllowed())) {
         views.hidden = false;
-        void setView(loadView());
+        void setView(options.view ?? loadView(), false);
       }
-      root.focus({ preventScroll: true });
+      if (options.focus !== false) root.focus({ preventScroll: true });
     })
     .catch((err) => {
       text.textContent =

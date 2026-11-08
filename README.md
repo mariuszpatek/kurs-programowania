@@ -99,7 +99,7 @@ Każdy przykład w lekcji w języku, który działa w przeglądarce, ma przycisk
 
 Przykład ```` ```python krok ```` uruchamia się w przeglądarce (`checker.trace`): po każdej linijce widać zmienne z typami i to, co jest na ekranie. Z „Pokaż liczenie w linijce” każda linijka rozkłada się na wartości, jak „step into” w Thonny (`age = int('16')` → `age = 16`). Przyciski Wstecz / Dalej / Odtwórz są wspólne z rysunkami (`src/lib/step-controls.ts`).
 
-Widok „Schemat” (`src/lib/flowchart/`): `checker.flowchart` zamienia kod na bloki, `layout.ts` układa schemat blokowy (program i osobno każda funkcja), `progress.ts` wylicza z kroków bieżący blok, wybraną strzałkę, wartość warunku i obroty pętli, a `render.ts` rysuje SVG. Kod, którego schemat nie zna (`try`, klasy…) albo ponad 40 bloków: przełącznika nie ma. Widzą go wszyscy; tylko nauczyciel: `FLOWCHARTS_FOR_STUDENTS = false` w `src/pages/lesson.astro`.
+Widok „Schemat” (`src/lib/flowchart/`): `checker.flowchart` zamienia kod na bloki, `layout.ts` układa schemat blokowy (program i osobno każda funkcja), `progress.ts` wylicza z kroków bieżący blok, wybraną strzałkę, wartość warunku i obroty pętli, a `render.ts` rysuje SVG. Kod, którego schemat nie zna (`try`, klasy…) albo ponad 40 bloków: przełącznika nie ma. Widzą go wszyscy; tylko nauczyciel: `FLOWCHARTS_FOR_STUDENTS = false` w `src/pages/lesson.astro`. Przykład ```` ```python schemat ```` otwiera kroki sam, od razu na schemacie, gdy czytelnik dojdzie do niego w lekcji (Python ładuje się dopiero wtedy); `sync-content` odrzuca taki przykład, jeśli schemat go nie narysuje.
 
 ### Rysunki (`src/lib/diagrams.ts`)
 
