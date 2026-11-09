@@ -58,6 +58,12 @@ test('passed only when every concept is "umie"', () => {
   assert.equal(passed({ concepts: [], advice: '' }), false);
 });
 
+test('only "Musi paść" decides the grade; Kuba does not hint at a result when he finishes', () => {
+  assert.match(summarySystem(task, key), /„Dobrze, jeśli padnie” to dodatki\. Ich brak nigdy nie obniża oceny/);
+  assert.doesNotMatch(summarySystem(task, key), /Element z klucza, który nie padł/);
+  assert.match(chatSystem(task, key), /nie zdradzasz oceny/);
+});
+
 test('the level names the lesson and only the topics covered up to it', () => {
   const level = levelText('Python od zera', 2, [
     { number: 1, title: 'print i zmienne', topics: ['print()', 'input()'] },

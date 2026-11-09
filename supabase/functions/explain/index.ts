@@ -18,6 +18,8 @@ import {
 } from './prompt.ts';
 
 const MODEL = Deno.env.get('EXPLAIN_MODEL') ?? 'claude-haiku-5-5';
+// One call per conversation, so the grade gets the model that follows the key's rules more closely.
+const SUMMARY_MODEL = Deno.env.get('EXPLAIN_SUMMARY_MODEL') ?? 'claude-sonnet-5-5';
 const DAILY_LIMIT = Number(Deno.env.get('EXPLAIN_DAILY_LIMIT') ?? '60');
 const TASK_LIMIT = Number(Deno.env.get('EXPLAIN_TASK_LIMIT') ?? '80');
 
@@ -107,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     const result = await anthropic.messages.create({
-      model: MODEL,
+      model: SUMMARY_MODEL,
       max_tokens: 8000,
       output_config: { effort: 'low', format: { type: 'json_schema', schema: SUMMARY_SCHEMA } },
       system: summarySystem(explainTask, note.body_md),

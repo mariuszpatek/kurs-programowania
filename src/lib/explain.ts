@@ -179,8 +179,12 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
     chat.disableSubmitButton(true);
     chat.setPlaceholderText('Rozmowa zakończona. Podsumowanie jest pod spodem.');
     canFinish();
+    const good = summary.concepts.filter((c) => (c.level ?? c.verdict) === 'umie').length;
+    const verdict = passed
+      ? 'Zaliczone. Umiesz to wytłumaczyć.'
+      : `${good} z ${summary.concepts.length} pojęć wyjaśnione w pełni. Popraw resztę i spróbuj jeszcze raz.`;
     summaryBox.innerHTML = `<p class="eyebrow">Podsumowanie</p>
-      <p><strong>${passed ? 'Zaliczone. Umiesz to wytłumaczyć.' : 'Jeszcze nie wszystko. Powtórz i spróbuj znowu.'}</strong></p>
+      <p><strong>${verdict}</strong></p>
       <ul>${summary.concepts
         .map((c) => {
           const level = (c.level ?? c.verdict ?? 'nie') as Level;
