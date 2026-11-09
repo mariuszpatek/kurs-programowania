@@ -50,8 +50,17 @@ function createChat(): DeepChat {
     },
   };
   chat.errorMessages = { displayServiceErrorMessages: true };
+  // the "…" bubble is switched by hand (Deep Chat replaces toggle when it renders), so it also shows while
+  // Kuba writes his first message, which Deep Chat itself does not ask for
+  chat.displayLoadingBubble = { toggle: () => {} };
   return chat;
 }
+
+/** Shows or hides the "Kuba is writing" dots. */
+const typing = (chat: DeepChat, on: boolean) => {
+  const bubble = chat.displayLoadingBubble;
+  if (typeof bubble === 'object') bubble.toggle(on ? { role: 'ai' } : undefined);
+};
 
 export async function mountExplain(root: HTMLElement, task: { id: string }) {
   const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
@@ -97,7 +106,9 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
       history.push({ role: 'user', content: text });
       remember();
       canFinish();
+      typing(chat, true);
       const data = await call({ messages: history });
+      typing(chat, false);
       if (data.error) {
         history.pop();
         remember();
@@ -113,7 +124,9 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
   };
   /** Kuba speaks first in a new conversation. */
   async function greet() {
+    typing(chat, true);
     const data = await call({ messages: [] });
+    typing(chat, false);
     if (data.error) return chat.addMessage({ role: 'ai', error: data.error });
     history.push({ role: 'assistant', content: data.reply });
     remember();
@@ -192,8 +205,11 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
     chat.onComponentRender = undefined;
     canFinish();
     if (history.length) return;
-    void lastSummary().then((shown) => {
-      if (!shown) void greet();
+    // a moment later: Deep Chat wires up the "…" bubble only after this callback
+    setTimeout(() => {
+      void lastSummary().then((shown) => {
+        if (!shown) void greet();
+      });
     });
   };
   // after onComponentRender is set: the window may render as soon as it is on the page
