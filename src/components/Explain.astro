@@ -1,0 +1,109 @@
+---
+// "Wytłumacz koledze" (beta) chat for kind: explain tasks; src/lib/explain.ts mounts it.
+---
+
+<section class="explain" hidden>
+  <p class="eyebrow">Wytłumacz koledze <span class="beta-badge">beta</span></p>
+  <p class="muted intro">
+    Kuba nie zna Pythona. Wytłumacz mu pojęcia z zadania swoimi słowami, jak koledze na przerwie. On będzie dopytywał.
+    Gdy omówicie wszystko, kliknij „Zakończ i podsumuj”.
+  </p>
+  <div class="chat" aria-live="polite"></div>
+  <form>
+    <textarea rows="3" placeholder="Twoje wyjaśnienie…" required></textarea>
+    <div class="actions">
+      <button class="primary send" type="submit">Wyślij</button>
+      <button class="ghost finish" type="button">Zakończ i podsumuj</button>
+      <span class="muted left"></span>
+    </div>
+  </form>
+  <div class="summary" hidden></div>
+  <button class="ghost restart" type="button" hidden>Zacznij rozmowę od nowa</button>
+</section>
+
+<style>
+  .explain {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+  .beta-badge {
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .intro {
+    font-size: 14px;
+    margin: 6px 0 14px;
+  }
+  .chat {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .chat :global(.message) {
+    padding: 10px 14px;
+    border-radius: 12px;
+    max-width: 85%;
+    white-space: pre-wrap;
+  }
+  .chat :global(.message.user) {
+    align-self: flex-end;
+    background: var(--accent-bg);
+    border: 1px solid var(--line);
+  }
+  .chat :global(.message.friend) {
+    align-self: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .chat :global(.message.friend p) {
+    margin: 0;
+  }
+  .chat :global(.message.error) {
+    color: var(--bad);
+  }
+  textarea {
+    width: 100%;
+    resize: vertical;
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 8px 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .left {
+    font-size: 13px;
+  }
+  .summary {
+    margin: 16px 0;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  .summary :global(ul) {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+  }
+  .summary :global(li) {
+    margin: 0 0 8px;
+  }
+  .summary :global(.verdict-umie) {
+    color: var(--ok);
+  }
+  .summary :global(.verdict-czesciowo) {
+    color: var(--text-2);
+  }
+  .summary :global(.verdict-nie) {
+    color: var(--bad);
+  }
+</style>

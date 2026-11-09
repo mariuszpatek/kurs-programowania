@@ -133,6 +133,13 @@ function prepareChoiceTasks(tasks) {
   return ok;
 }
 
+/** An "explain" task needs the teacher's key: the friend asks by it and the summary grades by it. */
+function checkExplainTasks(tasks) {
+  const missing = tasks.filter((t) => t.kind === 'explain' && !t.teacher_notes);
+  for (const t of missing) console.error(`  ✗ zadanie ${t.slug}: kind: explain potrzebuje klucza w pliku .teacher.md`);
+  return !missing.length;
+}
+
 let courses;
 try {
   courses = dirs.map(loadCourse);
@@ -146,6 +153,7 @@ for (const { course, lessons, tasks, teacherNotes, unusedDrawings } of courses) 
   console.log(`${course.title} (${course.slug}): ${lessons.length} lekcji, ${tasks.length} zadań`);
   if (unusedDrawings.length) console.warn(`  ! rysunki, których nie ma w żadnej lekcji: ${unusedDrawings.join(', ')}`);
   ok = prepareChoiceTasks(tasks) && ok;
+  ok = checkExplainTasks(tasks) && ok;
   ok = validate(course.language, tasks, lessons) && ok;
   ok = checkNoteMarkers(lessons, teacherNotes) && ok;
   ok = checkTaskMarkers(lessons, tasks) && ok;
@@ -202,10 +210,10 @@ for (const { course, lessons, tasks, teacherNotes } of courses) {
   const lessonDraft = new Map((remoteLessons ?? []).map((l) => [l.number, l.draft]));
   const taskDraft = new Map((remoteTasks ?? []).map((t) => [t.slug, t.draft]));
   const lessonRows = lessons.map((l) => ({ ...l, course_id: courseId, draft: lessonDraft.get(l.number) ?? true }));
-  const taskRows = tasks.map(({ solution, bad, teacher_notes, choice_checks, ...t }) => ({
+  const taskRows = tasks.map(({ solution, bad, teacher_notes, choice_checks, start_as_draft, ...t }) => ({
     ...t,
     course_id: courseId,
-    draft: taskDraft.get(t.slug) ?? lessonDraft.get(t.lesson_number) ?? true,
+    draft: taskDraft.get(t.slug) ?? (start_as_draft || (lessonDraft.get(t.lesson_number) ?? true)),
   }));
   const newDrafts = lessonRows.filter((l) => !lessonDraft.has(l.number)).map((l) => l.number);
   if (lessonRows.length) check('lessons', await db.from('lms_lessons').upsert(lessonRows, { onConflict: 'course_id,number' }));

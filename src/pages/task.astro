@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import Workspace from '../components/Workspace.astro';
 import Predict from '../components/Predict.astro';
 import Assistant from '../components/Assistant.astro';
+import Explain from '../components/Explain.astro';
 ---
 
 <Layout title="Zadanie" wide>
@@ -15,6 +16,7 @@ import Assistant from '../components/Assistant.astro';
       <p class="eyebrow" id="task-number"></p>
       <h1 id="task-title"></h1>
       <div class="prose" id="task-body"><p class="loading">Ładuję zadanie…</p></div>
+      <Explain />
       <section class="hints" id="task-hints" hidden>
         <p class="eyebrow">Podpowiedzi</p>
         <ol class="hint-list"></ol>
@@ -45,6 +47,7 @@ import Assistant from '../components/Assistant.astro';
   import { mountWorkspace } from '../lib/workspace';
   import { mountPredict } from '../lib/predict';
   import { mountChoice } from '../lib/choice';
+  import { mountExplain } from '../lib/explain';
   import { mountAssistant } from '../lib/assistant';
   import { mountHints } from '../lib/hints';
   import { languageById } from '../lib/languages';
@@ -104,6 +107,11 @@ import { param } from '../lib/url';
       // the questions are in the text, so there is nothing to put in the work column
       document.querySelector('.task-layout')!.classList.add('choice');
       mountChoice($('task-body'), task);
+    } else if (task.kind === 'explain') {
+      // a conversation instead of code: one column, and the friend replaces the assistant
+      document.querySelector('.task-layout')!.classList.add('choice');
+      mountExplain(document.querySelector<HTMLElement>('.explain')!, task);
+      return;
     } else {
       mountWorkspace(document.querySelector('.workspace')!, {
         language,
