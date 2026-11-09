@@ -964,9 +964,6 @@ textarea {
 .explain-badge::before {
   content: '💬 ';
 }
-.row.explain-row {
-  box-shadow: inset 3px 0 0 var(--accent);
-}
 
 .draft-badge {
   display: inline-block;

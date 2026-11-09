@@ -1,6 +1,7 @@
 // "Wytłumacz koledze" (beta): wires up components/Explain.astro. The conversation goes through the edge function
-// `explain`, which also saves the attempt with the summary; this browser only remembers the unfinished chat.
-import { supabase } from './supabase';
+// `explain`, which also saves the attempt with the summary; this browser only remembers the unfinished chat,
+// and a finished one comes back from that attempt.
+import { supabase, currentUser } from './supabase';
 import { renderUntrustedMarkdown } from './markdown';
 import { escapeHtml } from './languages/highlight';
 
@@ -80,6 +81,9 @@ export function mountExplain(root: HTMLElement, task: { id: string }) {
     const data = await call({ messages: history, finish: true });
     finish.textContent = 'Zakończ i podsumuj';
     if (!data?.summary) return busy(false);
+    // the conversation is saved with the attempt now, so this browser can forget it
+    history = [];
+    remember();
     showSummary(data.summary, data.passed);
     window.dispatchEvent(new CustomEvent('kurs:attempt', { detail: { taskId: task.id, passed: data.passed } }));
   }
@@ -127,7 +131,28 @@ export function mountExplain(root: HTMLElement, task: { id: string }) {
 
   finish.addEventListener('click', () => void summarize());
 
+  /** The summary of the last finished conversation, shown again after a reload. */
+  async function lastSummary(): Promise<boolean> {
+    const user = await currentUser();
+    if (!user) return false;
+    const { data } = await supabase
+      .from('lms_attempts')
+      .select('passed, results')
+      .eq('user_id', user.id)
+      .eq('task_id', task.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const attempt = data?.[0];
+    if (!attempt?.results?.summary) return false;
+    for (const m of (attempt.results.messages ?? []) as Message[]) append(m);
+    showSummary(attempt.results.summary, attempt.passed);
+    return true;
+  }
+
   history.forEach((m) => append(m));
   if (history.length) busy(false);
-  else void reply();
+  else
+    void lastSummary().then((shown) => {
+      if (!shown) void reply();
+    });
 }
