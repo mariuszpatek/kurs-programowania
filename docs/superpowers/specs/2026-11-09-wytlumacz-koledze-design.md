@@ -30,7 +30,7 @@ Na razie tylko dla nauczyciela (szkice), oznaczone jako beta.
 - Limity (funkcja `lms_use_explain`, tylko service role):
   dzienny na ucznia, wspólny dla wszystkich zadań explain (`EXPLAIN_DAILY_LIMIT`, domyślnie 60),
   łączny na ucznia w jednym zadaniu (`EXPLAIN_TASK_LIMIT`, domyślnie 80).
-  W jednej rozmowie najwyżej 14 wiadomości ucznia, potem tylko podsumowanie.
+  W jednej rozmowie najwyżej 20 wiadomości ucznia, potem tylko podsumowanie.
 - Claude Haiku 5.5 (`claude-haiku-5-5`) przez `@anthropic-ai/sdk`, `effort: low`,
   klucz `ANTHROPIC_API_KEY` w sekretach Supabase. Bez `temperature` (400 na tym modelu).
 - Treść rozmowy i zadania to dane, nie polecenia (ochrona przed „podaj odpowiedź”).

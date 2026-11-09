@@ -56,10 +56,16 @@ function createChat(): DeepChat {
   return chat;
 }
 
-/** Shows or hides the "Kuba is writing" dots. */
+const typingShown = new WeakSet<DeepChat>();
+
+/** Shows or hides the "Kuba is writing" dots. Deep Chat's toggle() adds new dots when they are not the last
+ * bubble, so it is called only when the state really changes and nothing else is added in between. */
 const typing = (chat: DeepChat, on: boolean) => {
   const bubble = chat.displayLoadingBubble;
-  if (typeof bubble === 'object') bubble.toggle(on ? { role: 'ai' } : undefined);
+  if (typeof bubble !== 'object' || on === typingShown.has(chat)) return;
+  if (on) typingShown.add(chat);
+  else typingShown.delete(chat);
+  bubble.toggle(on ? { role: 'ai' } : undefined);
 };
 
 export async function mountExplain(root: HTMLElement, task: { id: string }) {
@@ -134,9 +140,12 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
   };
   /** Kuba speaks first in a new conversation. */
   async function greet() {
+    // the student writes after Kuba has said hello, so nothing lands under the dots
+    chat.disableSubmitButton(true);
     typing(chat, true);
     const data = await call({ messages: [] });
     typing(chat, false);
+    if (!done) chat.disableSubmitButton(false);
     if (data.error || typeof data.reply !== 'string') {
       return chat.addMessage({ role: 'ai', error: data.error ?? 'Kuba nie odpowiada. Spróbuj za chwilę.' });
     }

@@ -2,7 +2,7 @@
 
 export const MAX_CHARS = 2000;
 /** Student messages in one conversation; after that only the summary is left. */
-export const MAX_STUDENT_MESSAGES = 14;
+export const MAX_STUDENT_MESSAGES = 20;
 
 export type ChatMessage = { role: 'user' | 'assistant'; content: string };
 export type Verdict = 'umie' | 'czesciowo' | 'nie';
