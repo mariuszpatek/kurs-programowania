@@ -75,7 +75,8 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
   const restart = $<HTMLButtonElement>('.restart');
   const left = $('.left');
   const summaryBox = $('.summary');
-  const storageKey = `kurs:explain:${task.id}`;
+  // v2: conversations started before Kuba became Robcio are not replayed
+  const storageKey = `kurs:explain:v2:${task.id}`;
   root.hidden = false;
 
   let history: Message[] = [];
