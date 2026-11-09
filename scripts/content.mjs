@@ -11,6 +11,9 @@
 //                                     hints: list of graded hints, the student opens them after failed checks
 //                                     kind: code (default), predict, or choice: ```python blocks, each with a
 //                                     quiz under it (src/lib/quiz.ts); no solution file
+//                                     explain: "Wytłumacz koledze" chat (supabase/functions/explain); the .teacher.md
+//                                     file is the key the friend asks by, so it is required
+//                                     draft: true makes a new task a draft even in a published lesson
 //   <course>/tasks/01/01-name.teacher.md  solution and explanation for the teacher only; optional
 //
 // Whether a lesson is published is not in these files: the teacher publishes it in the dashboard.
@@ -106,7 +109,7 @@ export function loadCourse(dir) {
       const name = basename(f, '.md');
       const { meta, body } = frontmatter(read(join(dir, 'tasks', lessonFolder, f)), f);
       const kind = meta.kind ?? 'code';
-      if (!['code', 'predict', 'choice'].includes(kind)) throw new Error(`${f}: kind must be code, predict or choice`);
+      if (!['code', 'predict', 'choice', 'explain'].includes(kind)) throw new Error(`${f}: kind must be code, predict, choice or explain`);
       const hints = meta.hints ?? [];
       if (!Array.isArray(hints) || hints.some((h) => typeof h !== 'string' || !h.trim())) {
         throw new Error(`${f}: hints must be a list of non-empty texts`);
@@ -122,6 +125,8 @@ export function loadCourse(dir) {
         predict_code: meta.predict_code ?? '',
         tests: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.test.py`)) ?? '',
         in_class: Boolean(meta.in_class),
+        // a new task starts as a draft also in a published lesson (the teacher publishes it later)
+        start_as_draft: Boolean(meta.draft),
         hints: hints.map((h) => h.trim()),
         // uploaded to lms_task_notes (teachers only), not to lms_tasks
         teacher_notes: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.teacher.md`))?.trim() ?? '',

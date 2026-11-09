@@ -32,6 +32,9 @@ def validate(task):
             problems.append(f"{slug}: odpowiedź w .txt nie zgadza się z prawdziwym wynikiem kodu")
         return problems
 
+    if task["kind"] == "explain":
+        return []
+
     if task["kind"] == "choice":
         for i, question in enumerate(task.get("choice_checks", []), 1):
             result = checker.compare_prediction(question["code"], "")

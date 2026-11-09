@@ -24,7 +24,7 @@ python-podstawy/
   lessons/01.md                     frontmatter: number, title, topics
   lessons/01.teacher.md             notatki tylko dla nauczyciela (plan, pytania, notatki przy fragmentach lekcji)
   lessons/img/nazwa.svg             rysunki; generator: lessons/img/_rysunki.py
-  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict | choice), in_class?, starter_code?, predict_code?, hints?
+  tasks/01/01-nazwa.md              frontmatter: title, number, kind (code | predict | choice | explain), draft?, in_class?, starter_code?, predict_code?, hints?
   tasks/01/01-nazwa.teacher.md      rozwiązanie z wyjaśnieniem, tylko dla nauczyciela
   tasks/01/01-nazwa.test.py         testy: funkcje test_*(ctx)
   solutions/01/01-nazwa.py          wzorcowe rozwiązanie (dla predict: .txt z oczekiwanym wynikiem)
@@ -92,6 +92,8 @@ Pytanie zamknięte (`src/lib/quiz.ts`) to lista z polami wyboru, `[x]` przy dobr
 Na stronie są z tego przyciski A) B) C)…: zła odpowiedź robi się czerwona i pokazuje swoje wyjaśnienie, dobra zielona i zamyka pytanie. `sync-content` odrzuca quiz bez dokładnie jednego `[x]` albo z odpowiedzią bez wyjaśnienia.
 
 Zadanie `kind: choice` to kilka takich pytań w treści zadania: blok ```` ```python ```` i zaraz pod nim lista z odpowiedziami. Edytora nie ma; zadanie zalicza się, gdy każde pytanie ma dobrą odpowiedź, a każde kliknięcie zapisuje się jako próba (podpowiedzi, panel). Pliku w `solutions/` nie ma: `sync-content` uruchamia kod pytania i sprawdza, że wypisuje to, co odpowiedź z `[x]` (kilka linijek po przecinku: `10, 20, 30`). Wymaga migracji `20261108000000_lms_task_choice.sql`.
+
+Zadanie `kind: explain` (beta) to rozmowa „Wytłumacz koledze”: uczeń tłumaczy pojęcia z treści zadania Kubie, którego gra Claude Haiku 5.5 w edge function `explain`. Kuba dopytuje według klucza z `NN-nazwa.teacher.md` (obowiązkowy, uczeń go nie widzi), a „Zakończ i podsumuj” daje ocenę każdego pojęcia; zaliczenie i próbę zapisuje funkcja, nie przeglądarka. Limity: `EXPLAIN_DAILY_LIMIT` (wiadomości ucznia na dobę, wszystkie takie zadania, domyślnie 60), `EXPLAIN_TASK_LIMIT` (wiadomości ucznia w jednym zadaniu, domyślnie 80), 14 wiadomości w jednej rozmowie. Wymaga migracji `20261109000000_lms_task_explain.sql`, sekretu `ANTHROPIC_API_KEY` i `supabase functions deploy explain`. `draft: true` we frontmatterze sprawia, że nowe zadanie wchodzi jako szkic także w opublikowanej lekcji.
 
 Pod „Krok po kroku”, schematem i rysunkami jest suwak „Tempo” dla „Odtwórz” (`src/lib/step-controls.ts`), zapamiętywany w przeglądarce.
 

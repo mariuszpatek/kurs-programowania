@@ -23,7 +23,7 @@ export type Task = {
   slug: string;
   title: string;
   /** choice: questions with A) B) C) buttons in body_md, done when every one is answered right. */
-  kind: 'code' | 'predict' | 'choice';
+  kind: 'code' | 'predict' | 'choice' | 'explain';
   body_md: string;
   starter_code: string;
   predict_code: string;
