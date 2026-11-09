@@ -11,7 +11,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "sync-content": "node scripts/sync-content.mjs",
-    "test": "py -m unittest discover tests && node --test --experimental-strip-types \"tests/flowchart/*.test.ts\" tests/explain.test.ts",
+    "test": "py -m unittest discover tests && node --test --experimental-strip-types \"tests/flowchart/*.test.ts\" tests/explain.test.ts tests/untrusted-markdown.test.ts",
     "new-course": "node scripts/new-course.mjs",
     "new-lesson": "node scripts/new-lesson.mjs"
   },
