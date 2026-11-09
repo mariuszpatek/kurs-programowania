@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
         system: chatSystem(explainTask, note.body_md),
         messages: [OPENER, ...messages],
       });
-      if (reply.stop_reason === 'refusal') return json({ error: 'Kuba nie umie na to odpowiedzieć. Spróbuj inaczej.' }, 502);
+      if (reply.stop_reason === 'refusal') return json({ error: 'Robcio nie umie na to odpowiedzieć. Spróbuj inaczej.' }, 502);
       return json({ reply: text(reply), left: MAX_STUDENT_MESSAGES - said });
     }
 
@@ -131,9 +131,9 @@ Deno.serve(async (req) => {
     if (error) console.error('attempt not saved', error);
     return json({ summary, passed: ok });
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return json({ error: 'Kuba jest zajęty. Spróbuj za minutę.' }, 429);
+    if (e instanceof Anthropic.RateLimitError) return json({ error: 'Robcio jest zajęty. Spróbuj za minutę.' }, 429);
     if (e instanceof Anthropic.APIError) console.error('Anthropic', e.status, e.message);
     else console.error(e);
-    return json({ error: 'Kuba jest chwilowo niedostępny.' }, 502);
+    return json({ error: 'Robcio jest chwilowo niedostępny.' }, 502);
   }
 });

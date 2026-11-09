@@ -40,7 +40,7 @@ function createChat(): DeepChat {
     html: { shared: { bubble: { maxWidth: '85%', lineHeight: '1.5', padding: '8px 12px' } }, ai: { bubble: { backgroundColor: 'var(--surface-2)', color: 'var(--text)' } } },
     error: { bubble: { backgroundColor: 'var(--bad-bg)', color: 'var(--bad)' } },
   };
-  chat.names = { ai: { text: 'Kuba', style: { color: 'var(--text-2)' } }, user: { text: 'Ty', style: { color: 'var(--text-2)' } } };
+  chat.names = { ai: { text: 'Robcio', style: { color: 'var(--text-2)' } }, user: { text: 'Ty', style: { color: 'var(--text-2)' } } };
   chat.textInput = {
     placeholder: { text: 'Twoje wyjaśnienie…' },
     characterLimit: 2000,
@@ -51,14 +51,14 @@ function createChat(): DeepChat {
   };
   chat.errorMessages = { displayServiceErrorMessages: true };
   // the "…" bubble is switched by hand (Deep Chat replaces toggle when it renders), so it also shows while
-  // Kuba writes his first message, which Deep Chat itself does not ask for
+  // Robcio writes his first message, which Deep Chat itself does not ask for
   chat.displayLoadingBubble = { toggle: () => {} };
   return chat;
 }
 
 const typingShown = new WeakSet<DeepChat>();
 
-/** Shows or hides the "Kuba is writing" dots. Deep Chat's toggle() adds new dots when they are not the last
+/** Shows or hides the "Robcio is writing" dots. Deep Chat's toggle() adds new dots when they are not the last
  * bubble, so it is called only when the state really changes and nothing else is added in between. */
 const typing = (chat: DeepChat, on: boolean) => {
   const bubble = chat.displayLoadingBubble;
@@ -103,7 +103,7 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
     const { data, error } = await supabase.functions.invoke('explain', { body: { taskId: task.id, ...body } });
     if (!error) return data;
     const message = await (error as any)?.context?.json?.().then((b: any) => b?.error).catch(() => null);
-    return { error: message ?? 'Kuba nie odpowiada. Spróbuj za chwilę.' };
+    return { error: message ?? 'Robcio nie odpowiada. Spróbuj za chwilę.' };
   }
 
   await import('deep-chat');
@@ -130,7 +130,7 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
         await signals.onResponse({ html: renderUntrustedMarkdown('To była ostatnia wiadomość w tej rozmowie. Podsumowanie jest pod spodem.') });
         return finished(data);
       }
-      if (typeof data.reply !== 'string') return void signals.onResponse({ error: 'Kuba nie odpowiada. Spróbuj za chwilę.' });
+      if (typeof data.reply !== 'string') return void signals.onResponse({ error: 'Robcio nie odpowiada. Spróbuj za chwilę.' });
       history.push({ role: 'assistant', content: data.reply });
       remember();
       left.textContent = data.left > 0 ? `Zostało wiadomości: ${data.left}` : '';
@@ -138,16 +138,16 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
       if (data.left <= 0) void summarize();
     },
   };
-  /** Kuba speaks first in a new conversation. */
+  /** Robcio speaks first in a new conversation. */
   async function greet() {
-    // the student writes after Kuba has said hello, so nothing lands under the dots
+    // the student writes after Robcio has said hello, so nothing lands under the dots
     chat.disableSubmitButton(true);
     typing(chat, true);
     const data = await call({ messages: [] });
     typing(chat, false);
     if (!done) chat.disableSubmitButton(false);
     if (data.error || typeof data.reply !== 'string') {
-      return chat.addMessage({ role: 'ai', error: data.error ?? 'Kuba nie odpowiada. Spróbuj za chwilę.' });
+      return chat.addMessage({ role: 'ai', error: data.error ?? 'Robcio nie odpowiada. Spróbuj za chwilę.' });
     }
     history.push({ role: 'assistant', content: data.reply });
     remember();

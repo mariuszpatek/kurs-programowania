@@ -48,7 +48,7 @@ test('the transcript names who said what and is wrapped as data', () => {
     { role: 'assistant', content: 'Co to while?' },
     { role: 'user', content: 'Powtarza.' },
   ]);
-  assert.equal(t, '<rozmowa>\nKuba: Co to while?\n\nUczeń: Powtarza.\n</rozmowa>');
+  assert.equal(t, '<rozmowa>\nRobcio: Co to while?\n\nUczeń: Powtarza.\n</rozmowa>');
 });
 
 test('passed only when every concept is "umie"', () => {
@@ -58,7 +58,7 @@ test('passed only when every concept is "umie"', () => {
   assert.equal(passed({ concepts: [], advice: '' }), false);
 });
 
-test('only "Musi paść" decides the grade; Kuba does not hint at a result when he finishes', () => {
+test('only "Musi paść" decides the grade; Robcio does not hint at a result when he finishes', () => {
   assert.match(summarySystem(task, key), /„Dobrze, jeśli padnie” to dodatki\. Ich brak nigdy nie obniża oceny/);
   assert.doesNotMatch(summarySystem(task, key), /Element z klucza, który nie padł/);
   assert.match(chatSystem(task, key), /nie zdradzasz oceny/);
