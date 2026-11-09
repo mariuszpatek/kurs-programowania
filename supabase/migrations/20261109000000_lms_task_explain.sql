@@ -1,23 +1,23 @@
 -- "Wytłumacz koledze" tasks (kind = 'explain'): the student explains concepts to a friend played by Claude
 -- in the edge function `explain`, which also counts the messages here.
-alter table public.lms_tasks drop constraint lms_tasks_kind_check;
+alter table public.lms_tasks drop constraint if exists lms_tasks_kind_check;
 alter table public.lms_tasks add constraint lms_tasks_kind_check check (kind in ('code', 'predict', 'choice', 'explain'));
 
-create table public.lms_explain_usage (
+create table if not exists public.lms_explain_usage (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users on delete cascade,
   task_id uuid not null references public.lms_tasks on delete cascade,
   created_at timestamptz not null default now()
 );
-create index lms_explain_usage_user on public.lms_explain_usage (user_id, created_at);
-create index lms_explain_usage_user_task on public.lms_explain_usage (user_id, task_id);
+create index if not exists lms_explain_usage_user on public.lms_explain_usage (user_id, created_at);
+create index if not exists lms_explain_usage_user_task on public.lms_explain_usage (user_id, task_id);
 
 -- Only the edge function writes and reads it (service role), so no policies.
 alter table public.lms_explain_usage enable row level security;
 
 -- Counts one message and says whether it fits: 'ok', 'daily' (all explain tasks in the last day)
 -- or 'task' (all messages of this student in this task).
-create function public.lms_use_explain(p_user uuid, p_task uuid, daily_limit int, task_limit int) returns text
+create or replace function public.lms_use_explain(p_user uuid, p_task uuid, daily_limit int, task_limit int) returns text
 language plpgsql security definer set search_path = ''
 as $$
 begin
