@@ -20,6 +20,10 @@ function rows(course: Course, tasks: Task[], statuses: Map<string, TaskStatus>) 
     row.href = taskPath(course, t);
     const title = el('span', t.title, 'row-title');
     if (t.draft) title.append(el('span', 'szkic', 'draft-badge'));
+    if (t.kind === 'explain') {
+      row.classList.add('explain-row');
+      title.append(el('span', 'rozmowa z AI · beta', 'explain-badge'));
+    }
     row.append(el('span', String(t.number), 'row-number'), title, el('span', STATUS_TEXT[status], `status-dot ${status}`));
     const li = el('li');
     li.append(row);

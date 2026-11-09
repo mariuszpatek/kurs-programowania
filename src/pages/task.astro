@@ -80,6 +80,7 @@ import { param } from '../lib/url';
     $('task-number').textContent = `Lekcja ${String(task.lesson_number).padStart(2, '0')} · ${task.in_class ? 'Na lekcji' : 'Zadanie domowe'} ${task.number}`;
     $('task-title').textContent = task.title;
     if (task.draft) $('task-title').append(Object.assign(document.createElement('span'), { className: 'draft-badge', textContent: 'szkic' }));
+    if (task.kind === 'explain') $('task-title').append(Object.assign(document.createElement('span'), { className: 'explain-badge', textContent: 'rozmowa z AI · beta' }));
     $('task-body').innerHTML = renderMarkdown(task.body_md);
     enhanceContent($('task-body'));
     mountHints($('task-hints'), task, access.isTeacher);
