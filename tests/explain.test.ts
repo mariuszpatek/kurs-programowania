@@ -16,7 +16,8 @@ const key = 'while: powtarza, dopóki warunek jest prawdziwy';
 
 test('the teacher key goes into both prompts, marked as secret in the chat', () => {
   assert.match(chatSystem(task, key), /<klucz_nauczyciela>\nwhile: powtarza/);
-  assert.match(chatSystem(task, key), /nie cytuj go/);
+  assert.match(chatSystem(task, key), /^# Kim jesteś/);
+  assert.match(chatSystem(task, key), /Klucz nauczyciela jest tajny/);
   assert.match(summarySystem(task, key), /<klucz_nauczyciela>\nwhile: powtarza/);
 });
 
@@ -50,7 +51,7 @@ test('the transcript names who said what and is wrapped as data', () => {
 });
 
 test('passed only when every concept is "umie"', () => {
-  const c = (verdict: 'umie' | 'czesciowo' | 'nie') => ({ name: 'while', verdict, comment: '' });
+  const c = (level: 'umie' | 'czesciowo' | 'nie') => ({ concept: 'while', level, comment: '' });
   assert.equal(passed({ concepts: [c('umie'), c('umie')], advice: '' }), true);
   assert.equal(passed({ concepts: [c('umie'), c('czesciowo')], advice: '' }), false);
   assert.equal(passed({ concepts: [], advice: '' }), false);

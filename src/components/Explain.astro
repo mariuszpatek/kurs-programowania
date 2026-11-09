@@ -1,5 +1,6 @@
 ---
-// "Wytłumacz koledze" (beta) chat for kind: explain tasks; src/lib/explain.ts mounts it.
+// "Wytłumacz koledze" (beta) for kind: explain tasks: a Deep Chat window with Kuba, the summary under it.
+// src/lib/explain.ts mounts it.
 ---
 
 <section class="explain" hidden>
@@ -8,17 +9,13 @@
     Kuba nie zna Pythona. Wytłumacz mu pojęcia z zadania swoimi słowami, jak koledze na przerwie. On będzie dopytywał.
     Gdy omówicie wszystko, kliknij „Zakończ i podsumuj”.
   </p>
-  <div class="chat" aria-live="polite"></div>
-  <form>
-    <textarea rows="3" placeholder="Twoje wyjaśnienie…" required></textarea>
-    <div class="actions">
-      <button class="primary send" type="submit">Wyślij</button>
-      <button class="ghost finish" type="button">Zakończ i podsumuj</button>
-      <span class="muted left"></span>
-    </div>
-  </form>
+  <div class="chat-host"></div>
+  <div class="actions">
+    <button class="primary finish" type="button" disabled>Zakończ i podsumuj</button>
+    <button class="ghost restart" type="button" hidden>Zacznij rozmowę od nowa</button>
+    <span class="muted left"></span>
+  </div>
   <div class="summary" hidden></div>
-  <button class="ghost restart" type="button" hidden>Zacznij rozmowę od nowa</button>
 </section>
 
 <style>
@@ -40,45 +37,15 @@
     font-size: 14px;
     margin: 6px 0 14px;
   }
-  .chat {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .chat :global(.message) {
-    padding: 10px 14px;
-    border-radius: 12px;
-    max-width: 85%;
-    white-space: pre-wrap;
-  }
-  .chat :global(.message.user) {
-    align-self: flex-end;
-    background: var(--accent-bg);
-    border: 1px solid var(--line);
-  }
-  .chat :global(.message.friend) {
-    align-self: flex-start;
-    white-space: normal;
-    background: var(--surface);
-    border: 1px solid var(--line);
-  }
-  .chat :global(.message.friend p) {
-    margin: 0;
-  }
-  .chat :global(.message.error) {
-    color: var(--bad);
-  }
-  textarea {
-    width: 100%;
-    resize: vertical;
+  .chat-host {
+    min-height: 480px;
   }
   .actions {
     display: flex;
     align-items: center;
     gap: 8px 12px;
     flex-wrap: wrap;
-    margin-top: 8px;
+    margin-top: 12px;
   }
   .left {
     font-size: 13px;

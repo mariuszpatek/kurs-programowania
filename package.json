@@ -29,6 +29,7 @@
     "@supabase/supabase-js": "^2.117.3",
     "astro": "^7.3.8",
     "codemirror": "^6.0.2",
+    "deep-chat": "^2.5.1",
     "marked": "^18.1.1",
     "yaml": "^2.9.1"
   },

@@ -111,7 +111,7 @@ import { param } from '../lib/url';
     } else if (task.kind === 'explain') {
       // a conversation instead of code: one column, and the friend replaces the assistant
       document.querySelector('.task-layout')!.classList.add('choice');
-      mountExplain(document.querySelector<HTMLElement>('.explain')!, task);
+      void mountExplain(document.querySelector<HTMLElement>('.explain')!, task);
       return;
     } else {
       mountWorkspace(document.querySelector('.workspace')!, {

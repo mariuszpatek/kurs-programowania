@@ -1,25 +1,65 @@
-// "Wytłumacz koledze" (beta): wires up components/Explain.astro. The conversation goes through the edge function
-// `explain`, which also saves the attempt with the summary; this browser only remembers the unfinished chat,
-// and a finished one comes back from that attempt.
+// "Wytłumacz koledze" (beta): wires up components/Explain.astro. The chat window is Deep Chat (loaded only on
+// these tasks); the conversation goes through the edge function `explain`, which also saves the attempt with
+// the summary. This browser only remembers the unfinished chat; a finished one comes back from that attempt.
+import type { DeepChat } from 'deep-chat';
 import { supabase, currentUser } from './supabase';
 import { renderUntrustedMarkdown } from './markdown';
 import { escapeHtml } from './languages/highlight';
 
 type Message = { role: 'user' | 'assistant'; content: string };
-type Summary = { concepts: { name: string; verdict: 'umie' | 'czesciowo' | 'nie'; comment: string }[]; advice: string };
+type Level = 'umie' | 'czesciowo' | 'nie';
+// name/verdict: summaries saved before the teacher's summary prompt
+type Concept = { concept?: string; level?: Level; name?: string; verdict?: Level; comment: string };
+type Summary = { concepts: Concept[]; advice: string };
 
-const VERDICT = { umie: '✓ umiesz', czesciowo: '~ częściowo', nie: '✗ jeszcze nie' };
+const LEVEL: Record<Level, string> = { umie: '✓ umiesz', czesciowo: '~ częściowo', nie: '✗ jeszcze nie' };
 
-export function mountExplain(root: HTMLElement, task: { id: string }) {
+const bubble = (m: Message) =>
+  m.role === 'user' ? { role: 'user', text: m.content } : { role: 'ai', html: renderUntrustedMarkdown(m.content) };
+
+/** Deep Chat styled with the site's colours (CSS variables reach into its shadow DOM). */
+function createChat(): DeepChat {
+  const chat = document.createElement('deep-chat') as DeepChat;
+  chat.style.display = 'block';
+  chat.style.width = '100%';
+  chat.chatStyle = {
+    width: '100%',
+    height: '480px',
+    border: '1px solid var(--line)',
+    borderRadius: '12px',
+    backgroundColor: 'var(--surface)',
+    fontFamily: 'inherit',
+    fontSize: '15px',
+  };
+  chat.messageStyles = {
+    default: {
+      shared: { bubble: { maxWidth: '85%', lineHeight: '1.5', padding: '8px 12px' } },
+      user: { bubble: { backgroundColor: 'var(--accent)', color: '#fff' } },
+      ai: { bubble: { backgroundColor: 'var(--surface-2)', color: 'var(--text)' } },
+    },
+    html: { shared: { bubble: { maxWidth: '85%', lineHeight: '1.5', padding: '8px 12px' } }, ai: { bubble: { backgroundColor: 'var(--surface-2)', color: 'var(--text)' } } },
+    error: { bubble: { backgroundColor: 'var(--bad-bg)', color: 'var(--bad)' } },
+  };
+  chat.names = { ai: { text: 'Kuba', style: { color: 'var(--text-2)' } }, user: { text: 'Ty', style: { color: 'var(--text-2)' } } };
+  chat.textInput = {
+    placeholder: { text: 'Twoje wyjaśnienie…' },
+    characterLimit: 2000,
+    styles: {
+      container: { backgroundColor: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: '10px', width: '90%' },
+      text: { color: 'var(--text)', padding: '8px 10px' },
+    },
+  };
+  chat.errorMessages = { displayServiceErrorMessages: true };
+  return chat;
+}
+
+export async function mountExplain(root: HTMLElement, task: { id: string }) {
   const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
-  const chat = $('.chat');
-  const form = $<HTMLFormElement>('form');
-  const input = $<HTMLTextAreaElement>('textarea');
-  const send = $<HTMLButtonElement>('.send');
+  const host = $('.chat-host');
   const finish = $<HTMLButtonElement>('.finish');
+  const restart = $<HTMLButtonElement>('.restart');
   const left = $('.left');
   const summaryBox = $('.summary');
-  const restart = $<HTMLButtonElement>('.restart');
   const storageKey = `kurs:explain:${task.id}`;
   root.hidden = false;
 
@@ -36,51 +76,59 @@ export function mountExplain(root: HTMLElement, task: { id: string }) {
       // the conversation is just not remembered
     }
   };
+  let done = false;
+  const canFinish = () => (finish.disabled = done || !history.some((m) => m.role === 'user'));
 
-  const append = (m: Message, error = false) => {
-    const div = document.createElement('div');
-    div.className = `message ${m.role === 'user' ? 'user' : 'friend'}${error ? ' error' : ''}`;
-    if (m.role === 'assistant') div.innerHTML = renderUntrustedMarkdown(m.content);
-    else div.textContent = m.content;
-    chat.append(div);
-    div.scrollIntoView({ block: 'nearest' });
-    return div;
-  };
-
-  const busy = (on: boolean) => {
-    send.disabled = on;
-    finish.disabled = on || !history.some((m) => m.role === 'user');
-  };
-
-  async function call(body: Record<string, unknown>) {
+  /** The function's answer, or { error } with a sentence for the student. */
+  async function call(body: Record<string, unknown>): Promise<any> {
     const { data, error } = await supabase.functions.invoke('explain', { body: { taskId: task.id, ...body } });
     if (!error) return data;
     const message = await (error as any)?.context?.json?.().then((b: any) => b?.error).catch(() => null);
-    append({ role: 'assistant', content: `⚠️ ${message ?? 'Kuba nie odpowiada. Spróbuj za chwilę.'}` }, true);
-    return null;
+    return { error: message ?? 'Kuba nie odpowiada. Spróbuj za chwilę.' };
   }
 
-  async function reply() {
-    busy(true);
-    const waiting = append({ role: 'assistant', content: '…' });
-    const data = await call({ messages: history });
-    waiting.remove();
-    if (data?.reply) {
+  await import('deep-chat');
+  const chat = createChat();
+  chat.history = history.map(bubble);
+  chat.connect = {
+    handler: async (body, signals) => {
+      const text = String(body?.messages?.at(-1)?.text ?? '').trim();
+      if (done || !text) return void signals.onResponse({ error: 'Rozmowa jest zakończona.' });
+      history.push({ role: 'user', content: text });
+      remember();
+      canFinish();
+      const data = await call({ messages: history });
+      if (data.error) {
+        history.pop();
+        remember();
+        canFinish();
+        return void signals.onResponse({ error: data.error });
+      }
       history.push({ role: 'assistant', content: data.reply });
-      append(history.at(-1)!);
       remember();
       left.textContent = data.left > 0 ? `Zostało wiadomości: ${data.left}` : '';
-      if (data.left <= 0) return summarize();
-    }
-    busy(false);
+      await signals.onResponse({ html: renderUntrustedMarkdown(data.reply) });
+      if (data.left <= 0) void summarize();
+    },
+  };
+  /** Kuba speaks first in a new conversation. */
+  async function greet() {
+    const data = await call({ messages: [] });
+    if (data.error) return chat.addMessage({ role: 'ai', error: data.error });
+    history.push({ role: 'assistant', content: data.reply });
+    remember();
+    chat.addMessage({ role: 'ai', html: renderUntrustedMarkdown(data.reply) });
   }
 
   async function summarize() {
-    busy(true);
+    finish.disabled = true;
     finish.textContent = 'Podsumowuję…';
     const data = await call({ messages: history, finish: true });
     finish.textContent = 'Zakończ i podsumuj';
-    if (!data?.summary) return busy(false);
+    if (data.error) {
+      chat.addMessage({ role: 'ai', error: data.error });
+      return canFinish();
+    }
     // the conversation is saved with the attempt now, so this browser can forget it
     history = [];
     remember();
@@ -89,47 +137,23 @@ export function mountExplain(root: HTMLElement, task: { id: string }) {
   }
 
   function showSummary(summary: Summary, passed: boolean) {
-    form.hidden = true;
+    done = true;
+    chat.disableSubmitButton(true);
+    chat.setPlaceholderText('Rozmowa zakończona. Podsumowanie jest pod spodem.');
+    canFinish();
     summaryBox.innerHTML = `<p class="eyebrow">Podsumowanie</p>
       <p><strong>${passed ? 'Zaliczone. Umiesz to wytłumaczyć.' : 'Jeszcze nie wszystko. Powtórz i spróbuj znowu.'}</strong></p>
       <ul>${summary.concepts
-        .map((c) => `<li><span class="verdict-${c.verdict}">${VERDICT[c.verdict] ?? ''}</span> <strong>${escapeHtml(c.name)}</strong>: ${escapeHtml(c.comment)}</li>`)
+        .map((c) => {
+          const level = (c.level ?? c.verdict ?? 'nie') as Level;
+          return `<li><span class="verdict-${level}">${LEVEL[level] ?? ''}</span> <strong>${escapeHtml(c.concept ?? c.name ?? '')}</strong>: ${escapeHtml(c.comment)}</li>`;
+        })
         .join('')}</ul>
       <p>${escapeHtml(summary.advice)}</p>`;
     summaryBox.hidden = false;
     restart.hidden = false;
-  }
-
-  restart.addEventListener('click', () => {
-    history = [];
-    remember();
-    chat.replaceChildren();
-    summaryBox.hidden = true;
-    restart.hidden = true;
-    form.hidden = false;
     left.textContent = '';
-    void reply();
-  });
-
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      form.requestSubmit();
-    }
-  });
-
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text || send.disabled) return;
-    input.value = '';
-    history.push({ role: 'user', content: text });
-    append(history.at(-1)!);
-    remember();
-    void reply();
-  });
-
-  finish.addEventListener('click', () => void summarize());
+  }
 
   /** The summary of the last finished conversation, shown again after a reload. */
   async function lastSummary(): Promise<boolean> {
@@ -144,15 +168,34 @@ export function mountExplain(root: HTMLElement, task: { id: string }) {
       .limit(1);
     const attempt = data?.[0];
     if (!attempt?.results?.summary) return false;
-    for (const m of (attempt.results.messages ?? []) as Message[]) append(m);
+    for (const m of (attempt.results.messages ?? []) as Message[]) chat.addMessage(bubble(m));
     showSummary(attempt.results.summary, attempt.passed);
     return true;
   }
 
-  history.forEach((m) => append(m));
-  if (history.length) busy(false);
-  else
+  restart.addEventListener('click', () => {
+    history = [];
+    remember();
+    done = false;
+    chat.clearMessages(true);
+    chat.disableSubmitButton(false);
+    chat.setPlaceholderText('Twoje wyjaśnienie…');
+    summaryBox.hidden = true;
+    restart.hidden = true;
+    canFinish();
+    void greet();
+  });
+
+  finish.addEventListener('click', () => void summarize());
+
+  chat.onComponentRender = () => {
+    chat.onComponentRender = undefined;
+    canFinish();
+    if (history.length) return;
     void lastSummary().then((shown) => {
-      if (!shown) void reply();
+      if (!shown) void greet();
     });
+  };
+  // after onComponentRender is set: the window may render as soon as it is on the page
+  host.replaceChildren(chat);
 }
