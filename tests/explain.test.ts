@@ -5,6 +5,7 @@ import {
   MAX_STUDENT_MESSAGES,
   chatSystem,
   cleanMessages,
+  levelText,
   passed,
   studentMessages,
   summarySystem,
@@ -55,4 +56,17 @@ test('passed only when every concept is "umie"', () => {
   assert.equal(passed({ concepts: [c('umie'), c('umie')], advice: '' }), true);
   assert.equal(passed({ concepts: [c('umie'), c('czesciowo')], advice: '' }), false);
   assert.equal(passed({ concepts: [], advice: '' }), false);
+});
+
+test('the level names the lesson and only the topics covered up to it', () => {
+  const level = levelText('Python od zera', 2, [
+    { number: 1, title: 'print i zmienne', topics: ['print()', 'input()'] },
+    { number: 2, title: 'Typy', topics: ['int', 'float'] },
+  ]);
+  assert.match(level, /Zadanie do lekcji 2 \(Typy\)/);
+  assert.match(level, /- Lekcja 1 \(print i zmienne\): print\(\); input\(\)/);
+  const prompt = chatSystem({ ...task, level }, key);
+  assert.match(prompt, /<poziom>\nKurs: Python od zera/);
+  assert.doesNotMatch(prompt, /liceum|nastolat/);
+  assert.doesNotMatch(summarySystem({ ...task, level }, key), /liceum/);
 });

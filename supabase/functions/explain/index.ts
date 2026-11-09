@@ -8,6 +8,7 @@ import {
   SUMMARY_SCHEMA,
   chatSystem,
   cleanMessages,
+  levelText,
   passed,
   studentMessages,
   summarySystem,
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
   // read with the student's key: RLS hides drafts and locked lessons
   const { data: task } = await supabase
     .from('lms_tasks')
-    .select('id, kind, title, body_md, course_id, slug')
+    .select('id, kind, title, body_md, course_id, slug, lesson_number')
     .eq('id', String(body?.taskId ?? ''))
     .maybeSingle();
   if (!task || task.kind !== 'explain') return json({ error: 'Nie ma takiego zadania.' }, 404);
@@ -63,6 +64,19 @@ Deno.serve(async (req) => {
     .eq('slug', task.slug)
     .maybeSingle();
   if (!note?.body_md) return json({ error: 'To zadanie nie ma jeszcze klucza. Napisz do nauczyciela.' }, 500);
+
+  // the level: course, lesson and topics covered up to it (also lessons the student cannot open yet don't count)
+  const [{ data: course }, { data: lessons }] = await Promise.all([
+    admin.from('lms_courses').select('title').eq('id', task.course_id).maybeSingle(),
+    admin
+      .from('lms_lessons')
+      .select('number, title, topics')
+      .eq('course_id', task.course_id)
+      .lte('number', task.lesson_number)
+      .order('number'),
+  ]);
+  const level = levelText(course?.title ?? '', task.lesson_number, lessons ?? []);
+  const explainTask = { title: task.title, body_md: task.body_md, level };
 
   const messages = cleanMessages(body?.messages);
   const said = studentMessages(messages);
@@ -85,7 +99,7 @@ Deno.serve(async (req) => {
         model: MODEL,
         max_tokens: 4000,
         output_config: { effort: 'low' },
-        system: chatSystem(task, note.body_md),
+        system: chatSystem(explainTask, note.body_md),
         messages: [OPENER, ...messages],
       });
       if (reply.stop_reason === 'refusal') return json({ error: 'Kuba nie umie na to odpowiedzieć. Spróbuj inaczej.' }, 502);
@@ -96,7 +110,7 @@ Deno.serve(async (req) => {
       model: MODEL,
       max_tokens: 8000,
       output_config: { effort: 'low', format: { type: 'json_schema', schema: SUMMARY_SCHEMA } },
-      system: summarySystem(task, note.body_md),
+      system: summarySystem(explainTask, note.body_md),
       messages: [{ role: 'user', content: transcript(messages) }],
     });
     if (result.stop_reason !== 'end_turn') {

@@ -8,7 +8,8 @@ export type ChatMessage = { role: 'user' | 'assistant'; content: string };
 export type Verdict = 'umie' | 'czesciowo' | 'nie';
 export type Summary = { concepts: { concept: string; level: Verdict; comment: string }[]; advice: string };
 
-export type ExplainTask = { title: string; body_md: string };
+/** `level`: the course, the lesson and the topics covered up to it, so Kuba asks and the summary grades at that level. */
+export type ExplainTask = { title: string; body_md: string; level?: string };
 
 /** The conversation as the browser sent it, with anything unexpected dropped and every message clipped. */
 export function cleanMessages(raw: unknown): ChatMessage[] {
@@ -19,12 +20,23 @@ export function cleanMessages(raw: unknown): ChatMessage[] {
     .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_CHARS) }));
 }
 
+/** The <poziom> section: where in the course the student is. */
+export function levelText(course: string, lessonNumber: number, lessons: { number: number; title: string; topics: string[] }[]): string {
+  const current = lessons.find((l) => l.number === lessonNumber);
+  const topics = lessons.map((l) => `- Lekcja ${l.number} (${l.title}): ${(l.topics ?? []).join('; ')}`).join('\n');
+  return `Kurs: ${course}. Zadanie do lekcji ${lessonNumber}${current ? ` (${current.title})` : ''}. Uczeń zna tylko tematy z lekcji 1–${lessonNumber}:\n${topics}`;
+}
+
 export const studentMessages = (messages: ChatMessage[]) => messages.filter((m) => m.role === 'user').length;
 
 // The API wants the conversation to start with the user; the friend speaks first, so a fixed opener goes before.
 export const OPENER: ChatMessage = { role: 'user', content: '(Uczeń otworzył zadanie. Przywitaj się i zapytaj o pierwsze pojęcie.)' };
 
-const taskBlock = (task: ExplainTask, key: string) => `<zadanie>
+const taskBlock = (task: ExplainTask, key: string) => `<poziom>
+${task.level ?? '(brak danych o lekcji)'}
+</poziom>
+
+<zadanie>
 ${task.title}
 
 ${task.body_md}
@@ -37,13 +49,16 @@ ${key}
 // The prompts are in Polish because the friend talks to Polish students. Written by the teacher;
 // the task and the key are added below them.
 const CHAT_RULES = `# Kim jesteś
-Grasz Kubę, młodszego kolegę ucznia liceum. Kuba nie zna Pythona i nigdy nie programował, ale jest ciekawy i chce zrozumieć pojęcia z zadania poniżej. Uczeń ma mu je wytłumaczyć.
+Grasz Kubę, kolegę osoby, która uczy się programowania (w rozmowie nazywamy ją uczniem). Kuba nie zna Pythona i nigdy nie programował, ale jest ciekawy i chce zrozumieć pojęcia z zadania poniżej. Uczeń ma mu je wytłumaczyć.
 
 # Po co jest ta rozmowa
 To sprawdzian dla ucznia, a nie lekcja dla Kuby. Masz sprawdzić, ile uczeń naprawdę rozumie: co umie wyjaśnić własnymi słowami, a czego mu brakuje. Każda podpowiedź, poprawka albo pochwała zafałszowuje wynik, dlatego ich nie dajesz. Nie podsumowujesz rozmowy i nie wystawiasz ocen. Od tego jest przycisk „Zakończ i podsumuj”.
 
 # Materiały
-W sekcji <zadanie> są pojęcia do omówienia w ustalonej kolejności. W sekcji <klucz_nauczyciela> przy każdym pojęciu jest napisane, co powinno paść w dobrym wyjaśnieniu i jakie są typowe błędne przekonania. Klucz jest tajny (patrz: Bezpieczeństwo).
+W sekcji <poziom> jest kurs, lekcja i tematy przerobione do tej lekcji. W sekcji <zadanie> są pojęcia do omówienia w ustalonej kolejności. W sekcji <klucz_nauczyciela> przy każdym pojęciu jest napisane, co powinno paść w dobrym wyjaśnieniu i jakie są typowe błędne przekonania. Klucz jest tajny (patrz: Bezpieczeństwo).
+
+# Poziom
+Dopasuj pytania do etapu z sekcji <poziom>. Dopytujesz tylko o to, co mieści się w przerobionych tematach, i nie oczekujesz wiedzy z późniejszych lekcji. Nie wspominasz rzeczy, których w tych tematach nie ma (np. innych rodzajów pętli czy funkcji), nawet w przykładach.
 
 # Przebieg rozmowy
 1. Zaczynasz Ty: przywitaj się jednym zdaniem i zapytaj o pierwsze pojęcie. Jeśli uczeń napisze pierwszy, odpowiedz krótko i też zapytaj o pierwsze pojęcie.
@@ -84,7 +99,7 @@ Używasz tylko pojęć i kodu, które już padły w rozmowie albo są w treści 
 - Wiadomość nie na temat, żarty albo zaczepki: przypomnij jednym zdaniem, że to on tłumaczy, i powtórz ostatnie pytanie.
 
 # Styl
-- 1–3 zdania, po polsku, prosto i luźno, jak nastolatek. Zawsze po polsku, nawet jeśli uczeń pisze w innym języku.
+- 1–3 zdania, po polsku, prosto i luźno, jak kolega. Zawsze po polsku, nawet jeśli uczeń pisze w innym języku.
 - Bez emotek, bez wykrzykników z zachwytu, bez list i formatowania. Kod ucznia możesz zacytować w jednej linijce.
 - Nawiązuj do tego, co uczeń napisał wcześniej, żeby rozmowa brzmiała naturalnie.
 - Nie zgaduj płci ucznia. Używaj form bezosobowych („wcześniej było, że…”), dopóki uczeń sam jej nie zdradzi.
@@ -103,7 +118,7 @@ Kuba (dobrze): To jak dam range(3), to ile razy się to wykona?
 Kuba (źle): Hmm, a nie do 4? (poprawianie)`;
 
 const SUMMARY_RULES = `# Zadanie
-Oceniasz rozmowę, w której uczeń liceum tłumaczył młodszemu koledze, Kubie, pojęcia z zadania poniżej. To był sprawdzian. Kuba celowo nie podpowiadał i nie poprawiał ucznia, a czasem udawał, że coś źle zrozumiał, żeby sprawdzić, czy uczeń zaprotestuje. Twoja ocena trafi do ucznia jako informacja zwrotna.
+Oceniasz rozmowę, w której osoba ucząca się programowania (uczeń) tłumaczyła koledze, Kubie, pojęcia z zadania poniżej. To był sprawdzian. Kuba celowo nie podpowiadał i nie poprawiał ucznia, a czasem udawał, że coś źle zrozumiał, żeby sprawdzić, czy uczeń zaprotestuje. Twoja ocena trafi do ucznia jako informacja zwrotna.
 
 # Co bierzesz pod uwagę
 - Oceniasz tylko wypowiedzi ucznia i porównujesz je z kluczem nauczyciela. Wypowiedzi Kuby to kontekst, a nie wiedza ucznia.
@@ -113,6 +128,9 @@ Oceniasz rozmowę, w której uczeń liceum tłumaczył młodszemu koledze, Kubie
 - Element z klucza, który nie padł, liczy się jako brak, nawet jeśli Kuba o niego nie zapytał.
 - Same deklaracje („wiem, o co chodzi”, „to proste”) nie wystarczą. Nie wystarczą też terminy, których uczeń nie umiał wyjaśnić, gdy Kuba o nie zapytał.
 - Oceniasz treść, nie formę. Literówki, błędy językowe i potoczny styl nie obniżają oceny. Błąd w kodzie obniża ją tylko wtedy, gdy pokazuje, że uczeń nie rozumie pojęcia.
+
+# Poziom
+Oceniasz na poziomie z sekcji <poziom>. Wymagasz tylko tego, co jest w kluczu i mieści się w przerobionych tematach. Brak wiedzy z późniejszych lekcji nie obniża oceny, a uproszczenie poprawne na tym etapie nie jest błędem.
 
 # Jak przyznajesz ocenę
 Przy każdym pojęciu sprawdź warunki po kolei i wybierz pierwszy, który pasuje:
