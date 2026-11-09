@@ -74,7 +74,11 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
 
   let history: Message[] = [];
   try {
-    history = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+    const saved = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+    // a message without text (left by an older version) would break the whole chat
+    history = Array.isArray(saved)
+      ? saved.filter((m) => (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string')
+      : [];
   } catch {
     history = [];
   }
@@ -115,6 +119,12 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
         canFinish();
         return void signals.onResponse({ error: data.error });
       }
+      if (data.summary) {
+        // the last allowed message: the function summed the conversation up instead of answering
+        await signals.onResponse({ html: renderUntrustedMarkdown('To była ostatnia wiadomość w tej rozmowie. Podsumowanie jest pod spodem.') });
+        return finished(data);
+      }
+      if (typeof data.reply !== 'string') return void signals.onResponse({ error: 'Kuba nie odpowiada. Spróbuj za chwilę.' });
       history.push({ role: 'assistant', content: data.reply });
       remember();
       left.textContent = data.left > 0 ? `Zostało wiadomości: ${data.left}` : '';
@@ -127,7 +137,9 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
     typing(chat, true);
     const data = await call({ messages: [] });
     typing(chat, false);
-    if (data.error) return chat.addMessage({ role: 'ai', error: data.error });
+    if (data.error || typeof data.reply !== 'string') {
+      return chat.addMessage({ role: 'ai', error: data.error ?? 'Kuba nie odpowiada. Spróbuj za chwilę.' });
+    }
     history.push({ role: 'assistant', content: data.reply });
     remember();
     chat.addMessage({ role: 'ai', html: renderUntrustedMarkdown(data.reply) });
@@ -142,6 +154,10 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
       chat.addMessage({ role: 'ai', error: data.error });
       return canFinish();
     }
+    finished(data);
+  }
+
+  function finished(data: { summary: Summary; passed: boolean }) {
     // the conversation is saved with the attempt now, so this browser can forget it
     history = [];
     remember();
