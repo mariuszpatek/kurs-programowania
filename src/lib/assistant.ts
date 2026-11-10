@@ -4,10 +4,12 @@ import { taskState } from './state';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
-/** Wires up components/Assistant.astro; does nothing when the assistant is disabled. */
-export function mountAssistant(context: { taskId: string; task: string; topics: string }) {
+/** Wires up components/Assistant.astro; does nothing when the teacher has not switched the tutor on. */
+export async function mountAssistant(context: { taskId: string; task: string; topics: string }) {
   const root = document.querySelector<HTMLElement>('.assistant');
   if (!root) return;
+  const { data: enabled } = await supabase.rpc('lms_assistant_enabled');
+  if (!enabled) return;
   root.hidden = false;
   const form = root.querySelector('form')!;
   const input = form.querySelector('textarea')!;

@@ -555,6 +555,14 @@ import Layout from '../layouts/Layout.astro';
     border-radius: 12px;
     background: var(--surface);
   }
+  .model-settings :global(.model-form h3) {
+    margin: 6px 0 -6px;
+    font-size: 15px;
+  }
+  .model-settings :global(.model-field input[type='checkbox']) {
+    width: auto;
+    justify-self: start;
+  }
   .model-settings :global(.model-providers) {
     display: flex;
     flex-wrap: wrap;

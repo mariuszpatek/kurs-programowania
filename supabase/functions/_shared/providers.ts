@@ -1,6 +1,6 @@
 // Anthropic and OpenRouter behind one shape, so the student's ask() / chat() does not care which one
-// the teacher picked. Pure functions (no Deno, no network) so they can be tested with Node:
-// node --experimental-strip-types --test tests/llm-providers.test.ts
+// the teacher picked; used by `llm` (ask() / chat()) and `assistant` (the tutor). Pure functions (no Deno,
+// no network), tested in tests/llm-providers.test.ts.
 
 export type Provider = 'anthropic' | 'openrouter';
 export type Message = { role: 'user' | 'assistant'; content: string };

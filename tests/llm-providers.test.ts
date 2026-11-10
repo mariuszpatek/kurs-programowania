@@ -1,7 +1,7 @@
-// Run: node --experimental-strip-types --test tests/llm-providers.test.ts
+// Run: npm run test:js
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { buildCall, costOf, parseRequest, parseResponse, providerError, withoutOptionalParams, LIMITS } from '../supabase/functions/llm/providers.ts';
+import { buildCall, costOf, parseRequest, parseResponse, providerError, withoutOptionalParams, LIMITS } from '../supabase/functions/_shared/providers.ts';
 
 const ok = (body: unknown) => {
   const r = parseRequest(body);

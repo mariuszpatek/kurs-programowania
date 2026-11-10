@@ -3,7 +3,7 @@
 // API keys live only in Supabase secrets: ANTHROPIC_API_KEY, OPENROUTER_API_KEY.
 // Every call is written to lms_llm_usage; a user over their monthly limit gets 429 before the provider is called.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { buildCall, costOf, parseRequest, parseResponse, providerError, withoutOptionalParams, type Effort, type Provider } from './providers.ts';
+import { buildCall, costOf, parseRequest, parseResponse, providerError, withoutOptionalParams, type Effort, type Provider } from '../_shared/providers.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

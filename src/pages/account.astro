@@ -10,9 +10,8 @@ import Layout from '../layouts/Layout.astro';
 
   <section class="card limits">
     <h2>Limity AI</h2>
-    <p><strong>Wytłumacz koledze:</strong> <span id="explain-usage">sprawdzam…</span></p>
-    <div class="meter" hidden><div id="explain-meter"></div></div>
-    <p class="muted">Liczy się każda Twoja wiadomość do Robcia. Licznik zeruje się codziennie o północy.</p>
+    <div id="ai-limits"><p class="muted">sprawdzam…</p></div>
+    <p class="muted">Wiadomości do Robcia i pytania do asystenta liczą się od północy. Wydatki na model w zadaniach z <code>ask()</code> liczą się od początku miesiąca.</p>
   </section>
 
   <form id="password-form" class="card password">
@@ -32,25 +31,53 @@ import Layout from '../layouts/Layout.astro';
   import { supabase } from '../lib/supabase';
   import { url } from '../lib/url';
 
-  /** Today's messages to Robcio; the edge function knows the limit (the teacher's is higher). */
-  async function showExplainUsage() {
-    const usage = document.getElementById('explain-usage')!;
-    const { data, error } = await supabase.functions.invoke('explain', { body: { usage: true } });
-    if (error || typeof data?.used !== 'number') {
-      usage.textContent = 'nie udało się sprawdzić.';
+  type AiUsage = {
+    explain: { used: number; limit: number };
+    assistant: { enabled: boolean; used: number; limit: number };
+    llm: { spent_usd: number; limit_usd: number };
+  };
+
+  /** One row: name, "x of y" and a bar that turns red when the limit is used up. */
+  function limitRow(name: string, used: number, limit: number, text: string, whenFull: string) {
+    const row = document.createElement('div');
+    row.className = 'limit';
+    const label = document.createElement('p');
+    const strong = document.createElement('strong');
+    strong.textContent = `${name}: `;
+    const full = used >= limit;
+    label.append(strong, `${text}${full ? `. ${whenFull}` : '.'}`);
+    const meter = document.createElement('div');
+    meter.className = 'meter';
+    const bar = document.createElement('div');
+    bar.style.width = `${limit > 0 ? Math.min(100, (used / limit) * 100) : 100}%`;
+    bar.classList.toggle('full', full);
+    meter.append(bar);
+    row.append(label, meter);
+    return row;
+  }
+
+  /** Limits of the signed-in person (the teacher's are higher), straight from the database. */
+  async function showAiLimits() {
+    const box = document.getElementById('ai-limits')!;
+    const { data, error } = await supabase.rpc('lms_my_ai_usage');
+    const u = data as AiUsage | null;
+    if (error || !u) {
+      box.textContent = 'Nie udało się sprawdzić limitów.';
       return;
     }
-    const left = Math.max(0, data.limit - data.used);
-    usage.textContent = `dziś ${data.used} z ${data.limit} wiadomości` + (left ? `, zostało ${left}.` : '. Limit na dziś wykorzystany, odnowi się o północy.');
-    const meter = document.getElementById('explain-meter')!;
-    meter.style.width = `${Math.min(100, (data.used / data.limit) * 100)}%`;
-    meter.classList.toggle('full', !left);
-    meter.parentElement!.hidden = false;
+    const usd = (n: number) => `${Number(n).toFixed(2)} USD`;
+    box.replaceChildren(
+      limitRow('Wytłumacz koledze', u.explain.used, u.explain.limit, `dziś ${u.explain.used} z ${u.explain.limit} wiadomości`, 'Odnowi się o północy'),
+      ...(u.assistant.enabled
+        ? [limitRow('Asystent przy zadaniach', u.assistant.used, u.assistant.limit, `dziś ${u.assistant.used} z ${u.assistant.limit} pytań`, 'Odnowi się o północy')]
+        : []),
+      limitRow('Model w zadaniach (ask)', Number(u.llm.spent_usd), Number(u.llm.limit_usd), `w tym miesiącu ${usd(u.llm.spent_usd)} z ${usd(u.llm.limit_usd)}`, 'Odnowi się 1. dnia miesiąca'),
+    );
   }
 
   requireAccess().then((access) => {
     if (!access) return;
-    void showExplainUsage();
+    void showAiLimits();
     document.getElementById('account-email')!.textContent = access.email;
     const titles = access.enrollments
       .map((e) => access.courses.find((c) => c.id === e.course_id)?.title)
@@ -110,18 +137,21 @@ import Layout from '../layouts/Layout.astro';
   .limits p {
     margin: 0 0 8px;
   }
-  .meter {
+  .limits :global(.limit p) {
+    margin: 0;
+  }
+  .limits :global(.meter) {
     height: 8px;
     margin: 4px 0 12px;
     border-radius: 999px;
     background: var(--surface-2);
     overflow: hidden;
   }
-  .meter div {
+  .limits :global(.meter div) {
     height: 100%;
     background: var(--accent);
   }
-  .meter div.full {
+  .limits :global(.meter div.full) {
     background: var(--bad);
   }
   .password {

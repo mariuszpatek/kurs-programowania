@@ -17,13 +17,16 @@ import {
   type Summary,
 } from './prompt.ts';
 
-const MODEL = Deno.env.get('EXPLAIN_MODEL') ?? 'claude-haiku-5-5';
-// One call per conversation, so the grade gets the model that follows the key's rules more closely.
-const SUMMARY_MODEL = Deno.env.get('EXPLAIN_SUMMARY_MODEL') ?? 'claude-sonnet-5-5';
-const DAILY_LIMIT = Number(Deno.env.get('EXPLAIN_DAILY_LIMIT') ?? '60');
-const TASK_LIMIT = Number(Deno.env.get('EXPLAIN_TASK_LIMIT') ?? '80');
+// Models and limits are set in the dashboard ("Model AI", lms_llm_settings); these are used only without that row.
+// The summary is one call per conversation, so it gets the model that follows the key's rules more closely.
+const DEFAULTS = {
+  explain_chat_model: 'claude-haiku-5-5',
+  explain_summary_model: 'claude-sonnet-5-5',
+  explain_daily_limit: 60,
+  explain_teacher_daily_limit: 300,
+  explain_task_limit: 80,
+};
 // the teacher tests the tasks: a higher daily limit and none per task
-const TEACHER_DAILY_LIMIT = Number(Deno.env.get('EXPLAIN_TEACHER_DAILY_LIMIT') ?? '300');
 const NO_LIMIT = 2_000_000_000;
 
 const CORS = {
@@ -55,12 +58,13 @@ Deno.serve(async (req) => {
   const { data: hasAccess } = await supabase.rpc('lms_has_access');
   if (!hasAccess) return json({ error: 'To konto nie ma dostępu do kursu. Napisz do nauczyciela.' }, 403);
 
-  const { data: isTeacher } = await supabase.rpc('lms_is_teacher');
-  const dailyLimit = isTeacher ? TEACHER_DAILY_LIMIT : DAILY_LIMIT;
+  const [{ data: isTeacher }, { data: saved }] = await Promise.all([
+    supabase.rpc('lms_is_teacher'),
+    admin.from('lms_llm_settings').select(Object.keys(DEFAULTS).join(', ')).eq('id', 1).maybeSingle(),
+  ]);
+  const settings = { ...DEFAULTS, ...(saved ?? {}) } as typeof DEFAULTS;
+  const dailyLimit = isTeacher ? settings.explain_teacher_daily_limit : settings.explain_daily_limit;
   const usedToday = async () => (await admin.rpc('lms_explain_used_today', { p_user: auth.user!.id })).data ?? 0;
-
-  // the account page: how much of today's limit is used (it resets at midnight Polish time)
-  if (body?.usage) return json({ used: await usedToday(), limit: dailyLimit });
 
   // read with the student's key: RLS hides drafts and locked lessons
   const { data: task } = await supabase
@@ -99,7 +103,7 @@ Deno.serve(async (req) => {
     p_user: auth.user.id,
     p_task: task.id,
     daily_limit: dailyLimit,
-    task_limit: isTeacher ? NO_LIMIT : TASK_LIMIT,
+    task_limit: isTeacher ? NO_LIMIT : settings.explain_task_limit,
   });
   if (limitError) return json({ error: 'Nie udało się sprawdzić limitu.' }, 500);
   if (limit === 'daily') return json({ error: `Na dziś wykorzystano limit rozmów z Robciem (${dailyLimit} wiadomości). Odnowi się o północy.` }, 429);
@@ -108,7 +112,7 @@ Deno.serve(async (req) => {
   try {
     if (!finish) {
       const reply = await anthropic.messages.create({
-        model: MODEL,
+        model: settings.explain_chat_model,
         max_tokens: 4000,
         output_config: { effort: 'low' },
         system: chatSystem(explainTask, note.body_md),
@@ -119,7 +123,7 @@ Deno.serve(async (req) => {
     }
 
     const result = await anthropic.messages.create({
-      model: SUMMARY_MODEL,
+      model: settings.explain_summary_model,
       max_tokens: 8000,
       output_config: { effort: 'low', format: { type: 'json_schema', schema: SUMMARY_SCHEMA } },
       system: summarySystem(explainTask, note.body_md),

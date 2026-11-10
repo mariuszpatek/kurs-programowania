@@ -95,7 +95,7 @@ Na stronie są z tego przyciski A) B) C)…: zła odpowiedź robi się czerwona 
 
 Zadanie `kind: choice` to kilka takich pytań w treści zadania: blok ```` ```python ```` i zaraz pod nim lista z odpowiedziami. Edytora nie ma; zadanie zalicza się, gdy każde pytanie ma dobrą odpowiedź, a każde kliknięcie zapisuje się jako próba (podpowiedzi, panel). Pliku w `solutions/` nie ma: `sync-content` uruchamia kod pytania i sprawdza, że wypisuje to, co odpowiedź z `[x]` (kilka linijek po przecinku: `10, 20, 30`). Wymaga migracji `20261108000000_lms_task_choice.sql`.
 
-Zadanie `kind: explain` (beta) to rozmowa „Wytłumacz koledze”: uczeń tłumaczy pojęcia z treści zadania Robciowi, którego gra Claude Haiku 5.5 w edge function `explain`. Robcio dopytuje według klucza z `NN-nazwa.teacher.md` (obowiązkowy, uczeń go nie widzi), a „Zakończ i podsumuj” daje ocenę każdego pojęcia; zaliczenie i próbę zapisuje funkcja, nie przeglądarka. Limity: `EXPLAIN_DAILY_LIMIT` (wiadomości ucznia na dobę, wszystkie takie zadania, domyślnie 60), `EXPLAIN_TASK_LIMIT` (wiadomości ucznia w jednym zadaniu, domyślnie 80), 20 wiadomości ucznia w jednej rozmowie. Wymaga migracji `20261109000000_lms_task_explain.sql`, sekretu `ANTHROPIC_API_KEY` i `supabase functions deploy explain`. `draft: true` we frontmatterze sprawia, że nowe zadanie wchodzi jako szkic także w opublikowanej lekcji.
+Zadanie `kind: explain` (beta) to rozmowa „Wytłumacz koledze”: uczeń tłumaczy pojęcia z treści zadania Robciowi, którego gra Claude w edge function `explain` (rozmowa: Haiku 5.5, podsumowanie: Sonnet 5.5; zmienia się w panelu → „Model AI”). Robcio dopytuje według klucza z `NN-nazwa.teacher.md` (obowiązkowy, uczeń go nie widzi), a „Zakończ i podsumuj” daje ocenę każdego pojęcia; zaliczenie i próbę zapisuje funkcja, nie przeglądarka. Limity (też w panelu): wiadomości dziennie od północy (uczeń 60, nauczyciel 300), wiadomości ucznia w jednym zadaniu (80) i 20 wiadomości ucznia w jednej rozmowie. Wymaga migracji `20261109000000_lms_task_explain.sql` i `20261110180000_lms_ai_settings.sql`, sekretu `ANTHROPIC_API_KEY` i `supabase functions deploy explain`. `draft: true` we frontmatterze sprawia, że nowe zadanie wchodzi jako szkic także w opublikowanej lekcji.
 
 Pod „Krok po kroku”, schematem i rysunkami jest suwak „Tempo” dla „Odtwórz” (`src/lib/step-controls.ts`), zapamiętywany w przeglądarce.
 
@@ -165,12 +165,13 @@ Edge functions:
 ```
 supabase functions deploy lms-invite --project-ref <project-ref>
 supabase functions deploy llm --project-ref <project-ref>         # model dla ask() / chat()
-supabase secrets set ANTHROPIC_API_KEY=... OPENROUTER_API_KEY=... --project-ref <project-ref>
-supabase functions deploy assistant --project-ref <project-ref>   # asystent AI, opcjonalnie
-supabase secrets set OPENROUTER_API_KEY=... --project-ref <project-ref>
+supabase functions deploy assistant --project-ref <project-ref>   # asystent przy zadaniach
+supabase functions deploy explain --project-ref <project-ref>     # Wytłumacz koledze
+supabase secrets set ANTHROPIC_API_KEY=... --project-ref <project-ref>
+supabase secrets set OPENROUTER_API_KEY=... --project-ref <project-ref>   # tylko gdy w panelu wybrany OpenRouter
 ```
 
-Asystent pokazuje się dopiero przy `PUBLIC_ASSISTANT=1`. Sekrety opcjonalne: `ASSISTANT_MODEL` (domyślnie `anthropic/claude-haiku-4.5`), `ASSISTANT_DAILY_LIMIT` (domyślnie 40).
+`llm` i `assistant` korzystają ze wspólnego `supabase/functions/_shared/providers.ts`. Modele i limity wszystkich trzech funkcji AI ustawia się w panelu → „Model AI” (tabela `lms_llm_settings`, migracja `20261110180000_lms_ai_settings.sql`). Tam też włącza się asystenta: pojawia się wtedy pod każdym zadaniem, widzi kod ucznia i wynik ostatniego sprawdzenia, odpowiada modelem ustawionym dla `ask()` i ma dzienny limit pytań od północy. Uczeń widzi swoje limity na stronie Konto (`lms_my_ai_usage()`).
 
 ## Lokalnie
 
@@ -185,12 +186,13 @@ SUPABASE_SERVICE_ROLE_KEY=...      # tylko dla sync-content
 ```
 npm install
 npm run dev       # http://localhost:4321/kurs-programowania/
-npm test          # testy sprawdzarki
+npm test          # testy sprawdzarki (Python) i Vitest (schematy, prompty, Markdown, dostawcy modeli)
+npm run check     # astro check
 ```
 
 ## Publikacja
 
-`git push` na `main`: GitHub Actions uruchamia testy sprawdzarki, buduje stronę i publikuje na Pages. W repo: Settings → Secrets and variables → Actions → Variables: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY` (publiczny z założenia, dane chroni RLS) i opcjonalnie `PUBLIC_ASSISTANT=1`.
+`git push` na `main`: GitHub Actions uruchamia testy (Python i Vitest), `astro check`, buduje stronę i publikuje na Pages. W repo: Settings → Secrets and variables → Actions → Variables: `PUBLIC_SUPABASE_URL` i `PUBLIC_SUPABASE_ANON_KEY` (publiczny z założenia, dane chroni RLS).
 
 ## Ograniczenia
 

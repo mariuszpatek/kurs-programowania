@@ -1,6 +1,8 @@
-// "Model AI" in the teacher dashboard: which provider answers ask() / chat() (Anthropic or OpenRouter),
-// which models, prices for computing the cost, monthly limits, and this month's spending per person.
-// The edge function `llm` reads the same tables (supabase/migrations/…_lms_llm.sql).
+// "Model AI" in the teacher dashboard: which provider answers ask() / chat() and the tutor (Anthropic or
+// OpenRouter), which models, prices for computing the cost, monthly limits, this month's spending per person,
+// the tutor's switch and daily limit, and the models and limits of "Wytłumacz koledze" (Robcio).
+// The edge functions `llm`, `assistant` and `explain` read the same row (supabase/migrations/…_lms_llm.sql,
+// …_lms_ai_settings.sql).
 import { supabase } from './supabase';
 
 type Settings = {
@@ -12,6 +14,13 @@ type Settings = {
   output_price_per_mtok: number;
   student_monthly_limit_usd: number;
   teacher_monthly_limit_usd: number;
+  assistant_enabled: boolean;
+  assistant_daily_limit: number;
+  explain_chat_model: string;
+  explain_summary_model: string;
+  explain_daily_limit: number;
+  explain_teacher_daily_limit: number;
+  explain_task_limit: number;
 };
 type Usage = { email: string; calls: number; cost_usd: number };
 
@@ -78,6 +87,15 @@ export async function mountModelSettings(root: HTMLElement) {
   const priceOut = input(settings.output_price_per_mtok, 'number', '0.01');
   const studentLimit = input(settings.student_monthly_limit_usd, 'number', '0.1');
   const teacherLimit = input(settings.teacher_monthly_limit_usd, 'number', '0.1');
+  const assistantOn = el('input');
+  assistantOn.type = 'checkbox';
+  assistantOn.checked = settings.assistant_enabled;
+  const assistantLimit = input(settings.assistant_daily_limit, 'number', '1');
+  const explainChat = input(settings.explain_chat_model);
+  const explainSummary = input(settings.explain_summary_model);
+  const explainLimit = input(settings.explain_daily_limit, 'number', '1');
+  const explainTeacherLimit = input(settings.explain_teacher_daily_limit, 'number', '1');
+  const explainTaskLimit = input(settings.explain_task_limit, 'number', '1');
   const save = el('button', 'Zapisz ustawienia', 'primary');
   const message = el('span', '', 'muted');
 
@@ -85,9 +103,24 @@ export async function mountModelSettings(root: HTMLElement) {
     field('Kto odpowiada na ask() i chat()', providers),
     el('div', '', 'model-grid'),
     el('div', '', 'model-grid'),
+    el('h3', 'Asystent przy zadaniach'),
+    el('div', '', 'model-grid'),
+    el('h3', 'Wytłumacz koledze (Robcio)'),
+    el('div', '', 'model-grid'),
     el('div', '', 'model-actions'),
   );
-  const [, models, money, actions] = [...form.children] as HTMLElement[];
+  const [, models, money, , assistant, , explain, actions] = [...form.children] as HTMLElement[];
+  assistant.append(
+    field('Włączony', assistantOn, 'pod każdym zadaniem; odpowiada modelem ustawionym wyżej, tak jak ask()'),
+    field('Pytania dziennie (uczeń)', assistantLimit, 'licznik od północy'),
+  );
+  explain.append(
+    field('Model rozmowy', explainChat, 'tylko Anthropic, np. claude-haiku-5-5'),
+    field('Model podsumowania', explainSummary, 'jedno wywołanie na rozmowę, np. claude-sonnet-5-5'),
+    field('Wiadomości dziennie (uczeń)', explainLimit, 'licznik od północy'),
+    field('Wiadomości dziennie (Ty)', explainTeacherLimit),
+    field('Wiadomości w jednym zadaniu (uczeń)', explainTaskLimit, 'łącznie, na zawsze; Ciebie nie dotyczy'),
+  );
   models.append(
     field('Model Anthropic', anthropicModel, 'np. claude-haiku-5-5'),
     field('Model OpenRouter', openrouterModel, 'np. anthropic/claude-haiku-5.5'),
@@ -115,6 +148,13 @@ export async function mountModelSettings(root: HTMLElement) {
         output_price_per_mtok: Number(priceOut.value),
         student_monthly_limit_usd: Number(studentLimit.value),
         teacher_monthly_limit_usd: Number(teacherLimit.value),
+        assistant_enabled: assistantOn.checked,
+        assistant_daily_limit: Number(assistantLimit.value),
+        explain_chat_model: explainChat.value.trim(),
+        explain_summary_model: explainSummary.value.trim(),
+        explain_daily_limit: Number(explainLimit.value),
+        explain_teacher_daily_limit: Number(explainTeacherLimit.value),
+        explain_task_limit: Number(explainTaskLimit.value),
         updated_at: new Date().toISOString(),
       })
       .eq('id', 1);
@@ -156,7 +196,7 @@ export async function mountModelSettings(root: HTMLElement) {
     el('h2', 'Model AI'),
     el(
       'p',
-      'Model, z którego korzystają ask() i chat() w zadaniach. Klucze API są w sekretach funkcji llm w Supabase, nie tutaj. Po przekroczeniu limitu model odmawia do końca miesiąca.',
+      'Model, z którego korzystają ask() i chat() w zadaniach i asystent przy zadaniach, oraz ustawienia rozmów z Robciem. Klucze API są w sekretach funkcji w Supabase, nie tutaj. Po przekroczeniu limitu w dolarach model odmawia do końca miesiąca.',
       'muted',
     ),
     form,

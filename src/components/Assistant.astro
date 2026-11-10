@@ -1,24 +1,19 @@
 ---
-// AI tutor chat. Shown only when PUBLIC_ASSISTANT=1 (after the edge function is deployed).
-// src/lib/assistant.ts mounts it once the task has been loaded.
-const enabled = import.meta.env.PUBLIC_ASSISTANT === '1';
+// AI tutor chat. The teacher switches it on in the dashboard ("Model AI"); src/lib/assistant.ts shows it
+// once the task has been loaded and the switch is on.
 ---
 
-{
-  enabled && (
-    <section class="assistant" hidden>
-      <p class="eyebrow">Asystent</p>
-      <p class="muted intro">Podpowiada i tłumaczy błędy, ale nie poda gotowego rozwiązania. Widzi Twój kod i wynik ostatniego sprawdzenia.</p>
-      <div class="chat" />
-      <form>
-        <textarea id="assistant-question" rows="2" placeholder="Np. Co znaczy ten błąd? Od czego zacząć?" required />
-        <button class="primary" type="submit">
-          Zapytaj
-        </button>
-      </form>
-    </section>
-  )
-}
+<section class="assistant" hidden>
+  <p class="eyebrow">Asystent</p>
+  <p class="muted intro">Podpowiada i tłumaczy błędy, ale nie poda gotowego rozwiązania. Widzi Twój kod i wynik ostatniego sprawdzenia.</p>
+  <div class="chat" />
+  <form>
+    <textarea id="assistant-question" rows="2" placeholder="Np. Co znaczy ten błąd? Od czego zacząć?" required />
+    <button class="primary" type="submit">
+      Zapytaj
+    </button>
+  </form>
+</section>
 
 <style>
   .assistant {

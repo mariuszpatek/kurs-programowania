@@ -126,7 +126,7 @@ import { param } from '../lib/url';
         task: { id: task.id, tests: task.tests },
       });
     }
-    mountAssistant({
+    void mountAssistant({
       taskId: task.id,
       task: `${task.title}\n\n${task.body_md}${task.predict_code ? `\n\n${task.predict_code}` : ''}`,
       topics: topicsUpTo(courseLessons, task.lesson_number),
