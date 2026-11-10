@@ -1,0 +1,9 @@
+# LF everywhere: a script run on Windows must not turn whole files into CRLF diffs
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.pdf binary

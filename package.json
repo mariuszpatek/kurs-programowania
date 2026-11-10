@@ -11,7 +11,9 @@
     "preview": "astro preview",
     "astro": "astro",
     "sync-content": "node scripts/sync-content.mjs",
-    "test": "py -m unittest discover tests && node --experimental-strip-types --no-warnings --test tests/llm-providers.test.ts \"tests/flowchart/*.test.ts\" tests/explain.test.ts tests/untrusted-markdown.test.ts",
+    "test": "py -m unittest discover tests && vitest run",
+    "test:js": "vitest run",
+    "check": "astro check",
     "new-course": "node scripts/new-course.mjs",
     "new-lesson": "node scripts/new-lesson.mjs"
   },
@@ -35,6 +37,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "5.0.5"
   }
 }

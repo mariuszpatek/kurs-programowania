@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { layout } from '../../src/lib/flowchart/layout.ts';
 import type { Chart, ChartNode } from '../../src/lib/flowchart/model.ts';

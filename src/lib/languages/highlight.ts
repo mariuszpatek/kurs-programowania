@@ -1,7 +1,9 @@
 import { highlightCode, tagHighlighter, tags as t } from '@lezer/highlight';
 import type { Parser } from '@lezer/common';
 
-export const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** Safe in text and in attribute values. */
+export const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** Same token groups as the editor's HighlightStyle (src/lib/editor.ts); colours live in global.css. */
 const highlighter = tagHighlighter([

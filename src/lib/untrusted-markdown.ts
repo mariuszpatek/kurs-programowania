@@ -2,9 +2,7 @@
 // as text and links lead only to http(s). Escaping the text before parsing instead would escape code twice
 // (`a < 3` showed as `a &lt; 3`).
 import { Marked } from 'marked';
-
-// own copy of languages/highlight's escapeHtml, so the tests can load this file without a bundler
-const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+import { escapeHtml } from './languages/highlight';
 
 const untrusted = new Marked({
   renderer: {

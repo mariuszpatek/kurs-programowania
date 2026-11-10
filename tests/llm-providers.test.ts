@@ -1,5 +1,5 @@
 // Run: node --experimental-strip-types --test tests/llm-providers.test.ts
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { buildCall, costOf, parseRequest, parseResponse, providerError, withoutOptionalParams, LIMITS } from '../supabase/functions/llm/providers.ts';
 
