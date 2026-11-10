@@ -7,6 +7,7 @@
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
 //                                     "## @slug Title" sections show up at <!-- nauczyciel: slug --> in the lesson
 //   <course>/lessons/img/name.svg     drawings; ![caption](img/name.svg) in a lesson is inlined (src/lib/diagrams.ts)
+//   <course>/lessons/img/name.webp    pictures (memes, photos; webp/jpg/png, max 150 kB), inlined as data URIs
 //   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?, hints?
 //                                     hints: list of graded hints, the student opens them after failed checks
 //                                     kind: code (default), predict, or choice: ```python blocks, each with a
@@ -78,6 +79,21 @@ function inlineDrawings(body, lessonsDir, file, used) {
   });
 }
 
+const PICTURE_TYPES = { webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+const MAX_PICTURE_BYTES = 150_000;
+
+/** ![caption](img/name.webp|jpg|png), e.g. a meme, goes into the lesson as a data URI, so it needs no hosting either. */
+function inlinePictures(body, lessonsDir, file, used) {
+  return body.replace(/^!\[([^\]]*)\]\((img\/[\w-]+\.(webp|jpe?g|png))\)[ \t]*$/gm, (_, caption, path, ext) => {
+    const full = join(lessonsDir, path);
+    if (!existsSync(full)) throw new Error(`${file}: no picture ${path}`);
+    const bytes = readFileSync(full);
+    if (bytes.length > MAX_PICTURE_BYTES) throw new Error(`${path}: obrazek ma ${Math.round(bytes.length / 1000)} kB, najwyżej ${MAX_PICTURE_BYTES / 1000} kB (zmniejsz go albo zapisz jako webp)`);
+    used.add(basename(path));
+    return `![${caption}](data:${PICTURE_TYPES[ext]};base64,${bytes.toString('base64')})`;
+  });
+}
+
 export function loadCourse(dir) {
   const course = parseYaml(read(join(dir, 'course.yaml')));
   for (const field of ['slug', 'title', 'language']) {
@@ -90,7 +106,7 @@ export function loadCourse(dir) {
     .filter((f) => f.endsWith('.md') && !f.endsWith('.teacher.md'))
     .map((f) => {
       const { meta, body } = frontmatter(read(join(dir, 'lessons', f)), f);
-      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: inlineDrawings(body, join(dir, 'lessons'), f, usedDrawings) };
+      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: inlinePictures(inlineDrawings(body, join(dir, 'lessons'), f, usedDrawings), join(dir, 'lessons'), f, usedDrawings) };
     });
 
   // lessons/01.teacher.md belongs to the lesson whose file is lessons/01.md
@@ -138,6 +154,6 @@ export function loadCourse(dir) {
       });
     }
   }
-  const unusedDrawings = listDir(join(dir, 'lessons', 'img')).filter((f) => f.endsWith('.svg') && !usedDrawings.has(f));
+  const unusedDrawings = listDir(join(dir, 'lessons', 'img')).filter((f) => /\.(svg|webp|jpe?g|png)$/.test(f) && !usedDrawings.has(f));
   return { dir, course, lessons, tasks, teacherNotes, unusedDrawings };
 }
