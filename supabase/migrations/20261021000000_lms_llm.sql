@@ -9,9 +9,11 @@ alter table public.lms_courses add column if not exists position int not null de
 
 -- ---------------------------------------------------------------- tasks done on the student's computer
 
--- kind 'local': instructions and criteria on the page, the student hands in a repo link or a description
+-- kind 'local': instructions and criteria on the page, the student hands in a repo link or a description.
+-- The list has every kind, also the later ones: this file can run on a database that already has
+-- 'choice' and 'explain' tasks, and a shorter list would reject them. 20261110000000_lms_task_kinds.sql sets it again.
 alter table public.lms_tasks drop constraint if exists lms_tasks_kind_check;
-alter table public.lms_tasks add constraint lms_tasks_kind_check check (kind in ('code', 'predict', 'local'));
+alter table public.lms_tasks add constraint lms_tasks_kind_check check (kind in ('code', 'predict', 'local', 'choice', 'explain'));
 
 -- ---------------------------------------------------------------- settings (one row)
 

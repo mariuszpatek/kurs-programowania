@@ -704,6 +704,14 @@ blockquote {
   content: '▾ ';
 }
 
+/* pictures linked from a lesson (memes): never wider than the text */
+.prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
 /* ---------- tables ---------- */
 
 .table-wrap,
@@ -937,6 +945,24 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-2);
+}
+
+/* "Wytłumacz koledze" tasks: a conversation with AI, so they stand out in the list */
+.explain-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+.explain-badge::before {
+  content: '💬 ';
 }
 
 .draft-badge {

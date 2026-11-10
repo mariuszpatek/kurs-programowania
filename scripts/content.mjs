@@ -7,11 +7,15 @@
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
 //                                     "## @slug Title" sections show up at <!-- nauczyciel: slug --> in the lesson
 //   <course>/lessons/img/name.svg     drawings; ![caption](img/name.svg) in a lesson is inlined (src/lib/diagrams.ts)
-//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind (code | predict | local), in_class?, starter_code?, predict_code?, hints?
+//   <course>/lessons/img/name.webp    pictures (memes, photos; webp/jpg/png, max 150 kB), inlined as data URIs
+//   <course>/tasks/01/01-name.md      frontmatter: title, number, kind, in_class?, starter_code?, predict_code?, hints?
 //                                     local: done on the student's computer, no tests; the student hands in a link or a description
 //                                     hints: list of graded hints, the student opens them after failed checks
 //                                     kind: code (default), predict, or choice: ```python blocks, each with a
 //                                     quiz under it (src/lib/quiz.ts); no solution file
+//                                     explain: "Wytłumacz koledze" chat (supabase/functions/explain); the .teacher.md
+//                                     file is the key the friend asks by, so it is required
+//                                     draft: true makes a new task a draft even in a published lesson
 //   <course>/tasks/01/01-name.teacher.md  solution and explanation for the teacher only; optional
 //
 // Whether a lesson is published is not in these files: the teacher publishes it in the dashboard.
@@ -76,6 +80,21 @@ function inlineDrawings(body, lessonsDir, file, used) {
   });
 }
 
+const PICTURE_TYPES = { webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+const MAX_PICTURE_BYTES = 150_000;
+
+/** ![caption](img/name.webp|jpg|png), e.g. a meme, goes into the lesson as a data URI, so it needs no hosting either. */
+function inlinePictures(body, lessonsDir, file, used) {
+  return body.replace(/^!\[([^\]]*)\]\((img\/[\w-]+\.(webp|jpe?g|png))\)[ \t]*$/gm, (_, caption, path, ext) => {
+    const full = join(lessonsDir, path);
+    if (!existsSync(full)) throw new Error(`${file}: no picture ${path}`);
+    const bytes = readFileSync(full);
+    if (bytes.length > MAX_PICTURE_BYTES) throw new Error(`${path}: obrazek ma ${Math.round(bytes.length / 1000)} kB, najwyżej ${MAX_PICTURE_BYTES / 1000} kB (zmniejsz go albo zapisz jako webp)`);
+    used.add(basename(path));
+    return `![${caption}](data:${PICTURE_TYPES[ext]};base64,${bytes.toString('base64')})`;
+  });
+}
+
 export function loadCourse(dir) {
   const course = parseYaml(read(join(dir, 'course.yaml')));
   for (const field of ['slug', 'title', 'language']) {
@@ -88,7 +107,7 @@ export function loadCourse(dir) {
     .filter((f) => f.endsWith('.md') && !f.endsWith('.teacher.md'))
     .map((f) => {
       const { meta, body } = frontmatter(read(join(dir, 'lessons', f)), f);
-      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: inlineDrawings(body, join(dir, 'lessons'), f, usedDrawings) };
+      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: inlinePictures(inlineDrawings(body, join(dir, 'lessons'), f, usedDrawings), join(dir, 'lessons'), f, usedDrawings) };
     });
 
   // lessons/01.teacher.md belongs to the lesson whose file is lessons/01.md
@@ -107,7 +126,7 @@ export function loadCourse(dir) {
       const name = basename(f, '.md');
       const { meta, body } = frontmatter(read(join(dir, 'tasks', lessonFolder, f)), f);
       const kind = meta.kind ?? 'code';
-      if (!['code', 'predict', 'local', 'choice'].includes(kind)) throw new Error(`${f}: kind must be code, predict, local or choice`);
+      if (!['code', 'predict', 'local', 'choice', 'explain'].includes(kind)) throw new Error(`${f}: kind must be code, predict, local, choice or explain`);
       const hints = meta.hints ?? [];
       if (!Array.isArray(hints) || hints.some((h) => typeof h !== 'string' || !h.trim())) {
         throw new Error(`${f}: hints must be a list of non-empty texts`);
@@ -123,6 +142,8 @@ export function loadCourse(dir) {
         predict_code: meta.predict_code ?? '',
         tests: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.test.py`)) ?? '',
         in_class: Boolean(meta.in_class),
+        // a new task starts as a draft also in a published lesson (the teacher publishes it later)
+        start_as_draft: Boolean(meta.draft),
         hints: hints.map((h) => h.trim()),
         // uploaded to lms_task_notes (teachers only), not to lms_tasks
         teacher_notes: readIfExists(join(dir, 'tasks', lessonFolder, `${name}.teacher.md`))?.trim() ?? '',
@@ -134,6 +155,6 @@ export function loadCourse(dir) {
       });
     }
   }
-  const unusedDrawings = listDir(join(dir, 'lessons', 'img')).filter((f) => f.endsWith('.svg') && !usedDrawings.has(f));
+  const unusedDrawings = listDir(join(dir, 'lessons', 'img')).filter((f) => /\.(svg|webp|jpe?g|png)$/.test(f) && !usedDrawings.has(f));
   return { dir, course, lessons, tasks, teacherNotes, unusedDrawings };
 }

@@ -107,10 +107,7 @@ export function renderMarkdown(md: string): string {
   return marked.parse(md, { async: false });
 }
 
-/** For text written by the AI: Markdown formatting, but no raw HTML. */
-export function renderUntrustedMarkdown(md: string): string {
-  return marked.parse(escapeHtml(md), { async: false });
-}
+export { renderUntrustedMarkdown } from './untrusted-markdown';
 
 /** Adds Copy buttons, joins code with the output block right after it and adds step controls to drawings.
  * With `playground`, runnable examples also get "Zmień i uruchom" (lessons only). Call after inserting rendered HTML. */

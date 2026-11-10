@@ -34,6 +34,8 @@ def validate(task):
 
     if task["kind"] == "local":
         return [f"{slug}: zadanie local nie może mieć testów (robi się je na komputerze)"] if task["tests"] else []
+    if task["kind"] == "explain":
+        return []
 
     if task["kind"] == "choice":
         for i, question in enumerate(task.get("choice_checks", []), 1):

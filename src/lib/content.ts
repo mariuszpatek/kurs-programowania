@@ -26,7 +26,7 @@ export type Task = {
   title: string;
   /** local: done on the student's computer, handed in as a link or a description.
    * choice: questions with A) B) C) buttons in body_md, done when every one is answered right. */
-  kind: 'code' | 'predict' | 'local' | 'choice';
+  kind: 'code' | 'predict' | 'local' | 'choice' | 'explain';
   body_md: string;
   starter_code: string;
   predict_code: string;

@@ -1,0 +1,77 @@
+---
+// "Wytłumacz koledze" (beta) for kind: explain tasks: a Deep Chat window with Robcio, the summary under it.
+// src/lib/explain.ts mounts it.
+---
+
+<section class="explain" hidden>
+  <p class="eyebrow">Wytłumacz koledze <span class="beta-badge">beta</span></p>
+  <p class="muted intro">
+    Robcio to Twój AI-kolega, który nie zna Pythona. Wytłumacz mu pojęcia z zadania swoimi słowami, jak koledze na przerwie. On będzie dopytywał, ale nie powie, czy masz rację: ocenę zobaczysz dopiero w podsumowaniu.
+    Gdy omówicie wszystko, kliknij „Zakończ i podsumuj”.
+  </p>
+  <div class="chat-host"></div>
+  <div class="actions">
+    <button class="primary finish" type="button" disabled>Zakończ i podsumuj</button>
+    <button class="ghost restart" type="button" hidden>Zacznij rozmowę od nowa</button>
+    <span class="muted left"></span>
+  </div>
+  <div class="summary" hidden></div>
+</section>
+
+<style>
+  .explain {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+  .beta-badge {
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .intro {
+    font-size: 14px;
+    margin: 6px 0 14px;
+  }
+  .chat-host {
+    min-height: 480px;
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 8px 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .left {
+    font-size: 13px;
+  }
+  .summary {
+    margin: 16px 0;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+  .summary :global(ul) {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+  }
+  .summary :global(li) {
+    margin: 0 0 8px;
+  }
+  .summary :global(.verdict-umie) {
+    color: var(--ok);
+  }
+  .summary :global(.verdict-czesciowo) {
+    color: var(--text-2);
+  }
+  .summary :global(.verdict-nie) {
+    color: var(--bad);
+  }
+</style>
