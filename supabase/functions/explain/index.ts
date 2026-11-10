@@ -22,6 +22,9 @@ const MODEL = Deno.env.get('EXPLAIN_MODEL') ?? 'claude-haiku-5-5';
 const SUMMARY_MODEL = Deno.env.get('EXPLAIN_SUMMARY_MODEL') ?? 'claude-sonnet-5-5';
 const DAILY_LIMIT = Number(Deno.env.get('EXPLAIN_DAILY_LIMIT') ?? '60');
 const TASK_LIMIT = Number(Deno.env.get('EXPLAIN_TASK_LIMIT') ?? '80');
+// the teacher tests the tasks: a higher daily limit and none per task
+const TEACHER_DAILY_LIMIT = Number(Deno.env.get('EXPLAIN_TEACHER_DAILY_LIMIT') ?? '300');
+const NO_LIMIT = 2_000_000_000;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -51,6 +54,13 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => null);
   const { data: hasAccess } = await supabase.rpc('lms_has_access');
   if (!hasAccess) return json({ error: 'To konto nie ma dostępu do kursu. Napisz do nauczyciela.' }, 403);
+
+  const { data: isTeacher } = await supabase.rpc('lms_is_teacher');
+  const dailyLimit = isTeacher ? TEACHER_DAILY_LIMIT : DAILY_LIMIT;
+  const usedToday = async () => (await admin.rpc('lms_explain_used_today', { p_user: auth.user!.id })).data ?? 0;
+
+  // the account page: how much of today's limit is used (it resets at midnight Polish time)
+  if (body?.usage) return json({ used: await usedToday(), limit: dailyLimit });
 
   // read with the student's key: RLS hides drafts and locked lessons
   const { data: task } = await supabase
@@ -88,11 +98,11 @@ Deno.serve(async (req) => {
   const { data: limit, error: limitError } = await admin.rpc('lms_use_explain', {
     p_user: auth.user.id,
     p_task: task.id,
-    daily_limit: DAILY_LIMIT,
-    task_limit: TASK_LIMIT,
+    daily_limit: dailyLimit,
+    task_limit: isTeacher ? NO_LIMIT : TASK_LIMIT,
   });
   if (limitError) return json({ error: 'Nie udało się sprawdzić limitu.' }, 500);
-  if (limit === 'daily') return json({ error: 'Na dziś wykorzystano limit rozmów. Wróć jutro.' }, 429);
+  if (limit === 'daily') return json({ error: `Na dziś wykorzystano limit rozmów z Robciem (${dailyLimit} wiadomości). Odnowi się o północy.` }, 429);
   if (limit === 'task') return json({ error: 'W tym zadaniu wykorzystano limit wiadomości. Napisz do nauczyciela.' }, 429);
 
   try {
@@ -105,7 +115,7 @@ Deno.serve(async (req) => {
         messages: [OPENER, ...messages],
       });
       if (reply.stop_reason === 'refusal') return json({ error: 'Robcio nie umie na to odpowiedzieć. Spróbuj inaczej.' }, 502);
-      return json({ reply: text(reply), left: MAX_STUDENT_MESSAGES - said });
+      return json({ reply: text(reply), left: MAX_STUDENT_MESSAGES - said, todayLeft: Math.max(0, dailyLimit - (await usedToday())) });
     }
 
     const result = await anthropic.messages.create({

@@ -16,7 +16,7 @@ import Explain from '../components/Explain.astro';
     <div class="description">
       <p class="eyebrow" id="task-number"></p>
       <h1 id="task-title"></h1>
-      <div class="prose" id="task-body"><p class="loading">Ładuję zadanie…</p></div>
+      <div class="prose" id="task-body"><p class="loading" role="status" aria-label="Ładuję zadanie…"><span class="typed" aria-hidden="true"><span class="fn">wczytaj</span>(<span class="str">"zadanie"</span>)</span></p></div>
       <Explain />
       <section class="hints" id="task-hints" hidden>
         <p class="eyebrow">Podpowiedzi</p>

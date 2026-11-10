@@ -134,7 +134,12 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
       if (typeof data.reply !== 'string') return void signals.onResponse({ error: 'Robcio nie odpowiada. Spróbuj za chwilę.' });
       history.push({ role: 'assistant', content: data.reply });
       remember();
-      left.textContent = data.left > 0 ? `Zostało wiadomości: ${data.left}` : '';
+      left.textContent = [
+        data.left > 0 ? `W tej rozmowie zostało wiadomości: ${data.left}` : '',
+        typeof data.todayLeft === 'number' ? `dziś: ${data.todayLeft}` : '',
+      ]
+        .filter(Boolean)
+        .join(', ');
       await signals.onResponse({ html: renderUntrustedMarkdown(data.reply) });
       if (data.left <= 0) void summarize();
     },

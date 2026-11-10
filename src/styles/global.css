@@ -270,9 +270,53 @@ li {
   margin-bottom: 24px;
 }
 
+/* "Loading" as a line typed into the Python console: >>> wczytaj("lekcja") and a blinking cursor */
 .loading {
-  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 0.6ch;
+  font-family: var(--mono);
   font-size: 14px;
+  color: var(--text-2);
+}
+.loading::before {
+  content: '>>>';
+  color: var(--text-3);
+}
+.loading::after {
+  content: '';
+  width: 0.6em;
+  height: 1.15em;
+  background: var(--accent);
+  animation: loading-cursor 1s steps(1) infinite;
+}
+.loading .typed {
+  white-space: nowrap;
+  clip-path: inset(0 100% 0 0);
+  animation: loading-type 0.9s steps(18, end) 0.15s forwards;
+}
+.loading .fn {
+  color: var(--code-function);
+}
+.loading .str {
+  color: var(--code-string);
+}
+@keyframes loading-type {
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes loading-cursor {
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading::after,
+  .loading .typed {
+    animation: none;
+    clip-path: none;
+  }
 }
 
 /* ---------- code ---------- */

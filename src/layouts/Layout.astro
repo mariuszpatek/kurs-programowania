@@ -53,8 +53,8 @@ const coursesActive = path === url() || ['course/', 'lesson/', 'task/'].some((p)
           <slot />
         ) : (
           <>
-            <p class="loading" id="access-loading">
-              Sprawdzam dostęp…
+            <p class="loading" id="access-loading" role="status" aria-label="Sprawdzam dostęp…">
+              <span class="typed" aria-hidden="true"><span class="fn">sprawdz_dostep</span>()</span>
             </p>
             <div id="no-access" class="notice" hidden>
               <p class="eyebrow">Brak dostępu</p>
