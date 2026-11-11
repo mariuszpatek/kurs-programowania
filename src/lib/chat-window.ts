@@ -34,6 +34,10 @@ export function createChat(options: { name: string; placeholder: string; height:
     fontFamily: 'inherit',
     fontSize: '15px',
   };
+  // waiting for the answer looks like the site's loading (.loading in global.css): "kodek.myśli()" typed in, then
+  // a blinking cursor; the bubble is as tall as a one-line message, so it stays in line with the name
+  const who = options.name.toLowerCase();
+  const thinking = `<span class="thinking"><span class="typed" style="animation-timing-function: steps(${who.length + 8}, end)">${who}.<span class="fn">myśli</span>()</span></span>`;
   chat.messageStyles = {
     default: {
       shared: { bubble: { maxWidth: '85%', lineHeight: '1.5', padding: '8px 12px' } },
@@ -42,6 +46,7 @@ export function createChat(options: { name: string; placeholder: string; height:
     },
     html: { shared: { bubble: { maxWidth: '85%', lineHeight: '1.5', padding: '8px 12px' } }, ai: { bubble: { backgroundColor: 'var(--surface-2)', color: 'var(--text)' } } },
     error: { bubble: { backgroundColor: 'var(--bad-bg)', color: 'var(--bad)' } },
+    loading: { message: { html: thinking, styles: { bubble: { backgroundColor: 'var(--surface-2)', padding: '8px 12px', lineHeight: '1.5' } } } },
   };
   chat.names = { ai: { text: options.name, style: { color: 'var(--text-2)' } }, user: { text: 'Ty', style: { color: 'var(--text-2)' } } };
   chat.textInput = {
@@ -53,7 +58,16 @@ export function createChat(options: { name: string; placeholder: string; height:
     },
   };
   chat.errorMessages = { displayServiceErrorMessages: true };
-  // the "…" bubble is switched by hand (Deep Chat replaces toggle when it renders), so it also shows while
+  chat.auxiliaryStyle = `
+    .thinking { display: flex; align-items: center; height: 22.5px; font-family: var(--mono); font-size: 14px; color: var(--text-2); }
+    .thinking::after { content: ''; width: 0.6em; height: 1.15em; margin-left: 1px; background: var(--accent); animation: thinking-cursor 1s steps(1) infinite; }
+    .thinking .typed { white-space: nowrap; clip-path: inset(0 100% 0 0); animation: thinking-type 0.8s 0.1s forwards; }
+    .thinking .fn { color: var(--code-function); }
+    @keyframes thinking-type { to { clip-path: inset(0 0 0 0); } }
+    @keyframes thinking-cursor { 50% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .thinking::after, .thinking .typed { animation: none; clip-path: none; } }
+  `;
+  // the waiting bubble is switched by hand (Deep Chat replaces toggle when it renders), so it also shows while
   // the bot writes a message nobody asked for (Robcio's greeting), which Deep Chat itself does not do
   chat.displayLoadingBubble = { toggle: () => {} };
   return chat;
@@ -61,7 +75,7 @@ export function createChat(options: { name: string; placeholder: string; height:
 
 const typingShown = new WeakSet<DeepChat>();
 
-/** Shows or hides the "is writing" dots. Deep Chat's toggle() adds new dots when they are not the last
+/** Shows or hides the waiting bubble ("kodek.myśli()"). Deep Chat's toggle() adds another one when it is not the last
  * bubble, so it is called only when the state really changes and nothing else is added in between. */
 export const typing = (chat: DeepChat, on: boolean) => {
   const dots = chat.displayLoadingBubble;

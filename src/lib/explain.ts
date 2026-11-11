@@ -87,7 +87,7 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
   };
   /** Robcio speaks first in a new conversation. */
   async function greet() {
-    // the student writes after Robcio has said hello, so nothing lands under the dots
+    // the student writes after Robcio has said hello, so nothing lands under the waiting bubble
     chat.disableSubmitButton(true);
     typing(chat, true);
     const data = await call({ messages: [] });
