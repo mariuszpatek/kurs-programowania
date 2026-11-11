@@ -111,7 +111,12 @@ export function loadCourse(dir) {
     .filter((f) => f.endsWith('.md') && !f.endsWith('.teacher.md'))
     .map((f) => {
       const { meta, body } = frontmatter(read(join(dir, 'lessons', f)), f);
-      return { number: meta.number, title: meta.title, topics: meta.topics ?? [], body_md: inlinePictures(inlineDrawings(body, join(dir, 'lessons'), f, usedDrawings), join(dir, 'lessons'), f, usedDrawings) };
+      // an unquoted topic with ": " inside ("and: oba warunki") is read by YAML as a key and a value
+      const topics = meta.topics ?? [];
+      if (!Array.isArray(topics) || topics.some((t) => typeof t !== 'string' || !t.trim())) {
+        throw new Error(`${f}: topics must be a list of non-empty texts (put a topic with ": " in quotes)`);
+      }
+      return { number: meta.number, title: meta.title, topics, body_md: inlinePictures(inlineDrawings(body, join(dir, 'lessons'), f, usedDrawings), join(dir, 'lessons'), f, usedDrawings) };
     });
 
   // lessons/01.teacher.md belongs to the lesson whose file is lessons/01.md
