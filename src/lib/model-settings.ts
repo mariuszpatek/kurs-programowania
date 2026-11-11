@@ -192,8 +192,8 @@ export async function mountModelSettings(root: HTMLElement) {
     table.append(row);
   }
 
+  // no heading: the dashboard tab says "Model AI"
   root.append(
-    el('h2', 'Model AI'),
     el(
       'p',
       'Model, z którego korzystają ask() i chat() w zadaniach i asystent przy zadaniach, oraz ustawienia rozmów z Robciem. Klucze API są w sekretach funkcji w Supabase, nie tutaj. Po przekroczeniu limitu w dolarach model odmawia do końca miesiąca.',

@@ -7,41 +7,43 @@ import Layout from '../layouts/Layout.astro';
   <h1>Panel</h1>
   <p class="lead" id="teacher-info">Ładuję…</p>
 
-  <section class="card add" id="add-student" hidden>
-    <p class="eyebrow">Dodaj ucznia</p>
-    <form id="add-form">
-      <div class="field grow">
-        <label for="add-email">E-mail ucznia</label>
-        <input id="add-email" type="email" required placeholder="uczen@email.pl" />
-      </div>
-      <div class="field">
-        <label for="add-course">Kurs</label>
-        <select id="add-course" required></select>
-      </div>
-      <div class="field narrow">
-        <label for="add-unlocked">Do lekcji</label>
-        <input id="add-unlocked" type="number" min="0" value="1" required />
-      </div>
-      <button class="primary" type="submit">Dodaj</button>
-    </form>
-    <p class="form-message" id="add-message" role="status"></p>
-  </section>
+  <div class="tabs" role="tablist" aria-label="Części panelu" id="panel-tabs" hidden>
+    <button type="button" role="tab" id="tab-students" aria-controls="students-panel" data-hash="uczniowie">Uczniowie</button>
+    <button type="button" role="tab" id="tab-lessons" aria-controls="lesson-notes" data-hash="lekcje" hidden>Lekcje</button>
+    <button type="button" role="tab" id="tab-model" aria-controls="model-settings" data-hash="model-ai" hidden>Model AI</button>
+  </div>
 
-  <nav class="panel-nav" id="panel-nav" hidden>
-    <a href="#students">Uczniowie</a>
-    <a href="#lesson-notes">Lekcje</a>
-    <a href="#model-settings" id="model-nav" hidden>Model AI</a>
-  </nav>
+  <div class="tab-panel" id="students-panel" role="tabpanel" aria-labelledby="tab-students">
+    <section class="card add" id="add-student" hidden>
+      <p class="eyebrow">Dodaj ucznia</p>
+      <form id="add-form">
+        <div class="field grow">
+          <label for="add-email">E-mail ucznia</label>
+          <input id="add-email" type="email" required placeholder="uczen@email.pl" />
+        </div>
+        <div class="field">
+          <label for="add-course">Kurs</label>
+          <select id="add-course" required></select>
+        </div>
+        <div class="field narrow">
+          <label for="add-unlocked">Do lekcji</label>
+          <input id="add-unlocked" type="number" min="0" value="1" required />
+        </div>
+        <button class="primary" type="submit">Dodaj</button>
+      </form>
+      <p class="form-message" id="add-message" role="status"></p>
+    </section>
 
-  <div id="students" class="students"></div>
+    <p class="muted students-info" id="students-info"></p>
+    <div id="students" class="students"></div>
+  </div>
 
-  <section class="lesson-notes" id="lesson-notes" hidden>
-    <h2>Lekcje</h2>
+  <section class="tab-panel lesson-notes" id="lesson-notes" role="tabpanel" aria-labelledby="tab-lessons" hidden>
     <p class="muted">Publikacja lekcji i notatki dla nauczyciela (plan, przykłady, odpowiedzi). Szkic widzisz tylko Ty, a po publikacji widzą go uczniowie, którzy mają odblokowaną tę lekcję.</p>
     <div id="lesson-notes-list"></div>
   </section>
 
-  <section class="model-settings" id="model-settings" hidden></section>
+  <section class="tab-panel model-settings" id="model-settings" role="tabpanel" aria-labelledby="tab-model" hidden></section>
 </Layout>
 
 <script>
@@ -205,6 +207,7 @@ import Layout from '../layouts/Layout.astro';
 
   function alertInline(text: string) {
     $('teacher-info').textContent = text;
+    $('teacher-info').hidden = false;
   }
 
   function enrollmentCard(e: Enrollment) {
@@ -245,24 +248,10 @@ import Layout from '../layouts/Layout.astro';
     card.append(head);
     if (visits) card.append(visitHistory(myVisits, mine, data));
 
-    for (const t of data.tasks) {
-      const list = mine.filter((a) => a.task_id === t.id);
-      const passed = list.some((a) => a.passed);
-      const locked = t.draft || t.lesson_number > e.unlocked_through;
-      const row = el('details', '', `task-row ${locked ? 'locked' : ''}`);
-      const summary = el('summary');
-      summary.append(
-        el('span', `${t.lesson_number}.${t.number}`, 'row-number'),
-        el('span', t.title, 'row-title'),
-        el(
-          'span',
-          t.draft ? 'szkic, uczeń nie widzi' : locked ? 'zablokowane' : list.length ? (passed ? 'zaliczone' : 'w trakcie') : 'nie zaczęte',
-          `status-dot ${passed ? 'done' : list.length ? 'started' : ''}`,
-        ),
-        el('span', [list.length ? `${list.length} ${plural(list.length)}` : '', hintsLabel(e.email, t)].filter(Boolean).join(' · '), 'count'),
-      );
-      row.append(summary, list.length ? history(list) : el('p', 'Brak prób.', 'muted empty'));
-      card.append(row);
+    const lessonNumbers = [...new Set(data.tasks.map((t) => t.lesson_number))];
+    for (const n of lessonNumbers) {
+      const lesson = data.lessons.find((l) => l.number === n);
+      card.append(lessonGroup(e, n, lesson, data.tasks.filter((t) => t.lesson_number === n), mine));
     }
 
     const footer = el('div', '', 'student-footer');
@@ -276,6 +265,47 @@ import Layout from '../layouts/Layout.astro';
     );
     card.append(footer);
     return card;
+  }
+
+  /** One lesson in a student's card, folded: the summary says how far the student got, the tasks are inside. */
+  function lessonGroup(e: Enrollment, n: number, lesson: Lesson | undefined, lessonTasks: Task[], mine: Attempt[]) {
+    const mineHere = mine.filter((a) => lessonTasks.some((t) => t.id === a.task_id));
+    const passed = lessonTasks.filter((t) => mineHere.some((a) => a.task_id === t.id && a.passed)).length;
+    const locked = n > e.unlocked_through;
+    const group = el('details', '', `lesson-group ${locked ? 'locked' : ''}`);
+    const summary = el('summary');
+    summary.append(
+      el('span', `Lekcja ${n}`, 'row-number'),
+      el('span', lesson?.title ?? '', 'row-title'),
+      el(
+        'span',
+        lesson?.draft ? 'szkic, uczeń nie widzi' : locked ? 'zablokowana' : `${passed}/${lessonTasks.length} zaliczonych`,
+        `status-dot ${passed === lessonTasks.length ? 'done' : mineHere.length ? 'started' : ''}`,
+      ),
+      el('span', mineHere.length ? `${mineHere.length} ${plural(mineHere.length)}` : '', 'count'),
+    );
+    group.append(summary, ...lessonTasks.map((t) => taskRow(e, t, mineHere)));
+    return group;
+  }
+
+  function taskRow(e: Enrollment, t: Task, mine: Attempt[]) {
+    const list = mine.filter((a) => a.task_id === t.id);
+    const passed = list.some((a) => a.passed);
+    const locked = t.draft || t.lesson_number > e.unlocked_through;
+    const row = el('details', '', `task-row ${locked ? 'locked' : ''}`);
+    const summary = el('summary');
+    summary.append(
+      el('span', `${t.lesson_number}.${t.number}`, 'row-number'),
+      el('span', t.title, 'row-title'),
+      el(
+        'span',
+        t.draft ? 'szkic, uczeń nie widzi' : locked ? 'zablokowane' : list.length ? (passed ? 'zaliczone' : 'w trakcie') : 'nie zaczęte',
+        `status-dot ${passed ? 'done' : list.length ? 'started' : ''}`,
+      ),
+      el('span', [list.length ? `${list.length} ${plural(list.length)}` : '', hintsLabel(e.email, t)].filter(Boolean).join(' · '), 'count'),
+    );
+    row.append(summary, list.length ? history(list) : el('p', 'Brak prób.', 'muted empty'));
+    return row;
   }
 
   /** For when the login link does not reach the student: the teacher sets a password (lms-invite). */
@@ -314,7 +344,7 @@ import Layout from '../layouts/Layout.astro';
     const title = el('div');
     const link = el('a', lesson.title, 'note-title') as HTMLAnchorElement;
     link.href = lessonPath(course, lesson.number);
-    title.append(el('span', `${course.title} · Lekcja ${lesson.number}`, 'eyebrow'), link);
+    title.append(el('span', `Lekcja ${lesson.number}`, 'eyebrow'), link);
 
     const state = el('div', '', 'lesson-state');
     const badge = el('span');
@@ -344,7 +374,7 @@ import Layout from '../layouts/Layout.astro';
         return;
       }
       lesson.draft = !lesson.draft;
-      message.textContent = lesson.draft ? 'Cofnięta do szkicu.' : 'Opublikowana. Pamiętaj, żeby odblokować ją uczniom (+ przy uczniu).';
+      message.textContent = lesson.draft ? 'Cofnięta do szkicu.' : 'Opublikowana. Pamiętaj, żeby odblokować ją uczniom (+ przy uczniu w zakładce Uczniowie).';
       render();
     });
     render();
@@ -364,13 +394,60 @@ import Layout from '../layouts/Layout.astro';
     return item;
   }
 
+  /** Lessons grouped by course; only the first course starts unfolded. */
   function showLessons() {
-    const rows = [...courseData.values()].flatMap(({ course, lessons: ls, notes }) => ls.map((l) => lessonRow(course, l, notes.get(l.number))));
-    if (!rows.length) return;
-    $('lesson-notes-list').replaceChildren(...rows);
+    const groups = [...courseData.values()]
+      .filter(({ lessons: ls }) => ls.length)
+      .map(({ course, lessons: ls, notes }, i) => {
+        const group = el('details', '', 'course-group');
+        group.open = i === 0;
+        const summary = el('summary');
+        summary.append(el('span', course.title, 'course-title'), el('span', `lekcje: ${ls.length} · opublikowane: ${ls.filter((l) => !l.draft).length}`, 'muted'));
+        const list = el('div', '', 'lesson-list');
+        list.append(...ls.map((l) => lessonRow(course, l, notes.get(l.number))));
+        group.append(summary, list);
+        return group;
+      });
+    if (!groups.length) return;
+    $('lesson-notes-list').replaceChildren(...groups);
     $('lesson-notes').hidden = false;
-    $('panel-nav').hidden = false;
+    $('tab-lessons').hidden = false;
   }
+
+  const tabs = () => [...document.querySelectorAll<HTMLButtonElement>('#panel-tabs [role="tab"]')].filter((t) => !t.hidden);
+
+  /** Shows one part of the dashboard. Its name goes into the address (#lekcje), so a reload opens the same tab. */
+  function selectTab(tab: HTMLButtonElement, remember = true) {
+    for (const t of document.querySelectorAll<HTMLButtonElement>('#panel-tabs [role="tab"]')) {
+      const selected = t === tab;
+      t.setAttribute('aria-selected', String(selected));
+      t.tabIndex = selected ? 0 : -1;
+      $(t.getAttribute('aria-controls')!).classList.toggle('active', selected);
+    }
+    if (remember) window.history.replaceState(null, '', `#${tab.dataset.hash}`);
+  }
+
+  function openTabFromAddress() {
+    const visible = tabs();
+    selectTab(visible.find((t) => `#${t.dataset.hash}` === location.hash) ?? visible[0], false);
+  }
+
+  $('panel-tabs').addEventListener('click', (ev) => {
+    const tab = (ev.target as HTMLElement).closest<HTMLButtonElement>('[role="tab"]');
+    if (tab) selectTab(tab);
+  });
+  // arrows move between tabs, as in any tab bar
+  $('panel-tabs').addEventListener('keydown', (ev) => {
+    const visible = tabs();
+    const i = visible.indexOf(document.activeElement as HTMLButtonElement);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: visible.length - 1 }[ev.key];
+    if (i < 0 || next === undefined) return;
+    ev.preventDefault();
+    const tab = visible[(next + visible.length) % visible.length];
+    selectTab(tab);
+    tab.focus();
+  });
+  window.addEventListener('hashchange', openTabFromAddress);
 
   async function load() {
     const [{ data: enrollments }, { data: rawAttempts, error }, { data: hintViews }, { data: rawVisits, error: visitsError }] = await Promise.all([
@@ -387,11 +464,10 @@ import Layout from '../layouts/Layout.astro';
     }
     attempts = rawAttempts ?? [];
     const list = (enrollments ?? []) as Enrollment[];
-    alertInline(
-      list.length
-        ? 'Uczniowie, ich kursy i postępy. Kliknij zadanie, żeby zobaczyć wszystkie próby i kod.'
-        : 'Nie ma jeszcze uczniów. Dodaj pierwszego formularzem poniżej.',
-    );
+    $('teacher-info').hidden = true;
+    $('students-info').textContent = list.length
+      ? 'Kliknij lekcję przy uczniu, żeby zobaczyć jej zadania, a zadanie, żeby zobaczyć próby i kod.'
+      : 'Nie ma jeszcze uczniów. Dodaj pierwszego formularzem powyżej.';
     $('students').replaceChildren(...list.map(enrollmentCard));
   }
 
@@ -423,9 +499,13 @@ import Layout from '../layouts/Layout.astro';
     );
     $('add-student').hidden = false;
     showLessons();
+    $('panel-tabs').hidden = false;
+    openTabFromAddress();
     await load();
     await mountModelSettings($('model-settings'));
-    $('model-nav').hidden = $('model-settings').hidden;
+    $('tab-model').hidden = $('model-settings').hidden;
+    // the address may name the model tab, which only now exists
+    openTabFromAddress();
   });
 
   $('add-form').addEventListener('submit', async (e) => {
@@ -455,37 +535,82 @@ import Layout from '../layouts/Layout.astro';
 </script>
 
 <style>
-  .panel-nav {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-  }
-  .panel-nav a {
-    font-size: 14px;
-    padding: 6px 12px;
+  /* same look as the login modes (login.astro) */
+  .tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 16px;
+    padding: 4px;
     border: 1px solid var(--line);
-    border-radius: 999px;
+    border-radius: 10px;
+    background: var(--surface-2);
+  }
+  .tabs button {
+    height: 34px;
+    padding: 0 16px;
+    border: 0;
+    background: transparent;
     color: var(--text-2);
+  }
+  .tabs button[aria-selected='true'] {
     background: var(--surface);
-  }
-  .panel-nav a:hover {
     color: var(--text);
-    text-decoration: none;
+    box-shadow: var(--shadow);
   }
-  .students,
-  .lesson-notes {
-    scroll-margin-top: 80px;
+  .tab-panel:not(.active) {
+    display: none;
   }
-  .lesson-notes {
-    margin-top: 56px;
+  .tab-panel {
+    margin-top: 24px;
   }
-  .lesson-notes h2 {
-    margin-bottom: 4px;
+  .students-info {
+    margin: 24px 0 0;
+    font-size: 14px;
+  }
+  .students-info:empty {
+    display: none;
   }
   #lesson-notes-list {
     display: grid;
-    gap: 12px;
+    gap: 16px;
     margin-top: 20px;
+  }
+  #lesson-notes-list :global(.course-group > summary) {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 8px 0;
+    cursor: pointer;
+    list-style: none;
+  }
+  #lesson-notes-list :global(.course-group > summary::-webkit-details-marker) {
+    display: none;
+  }
+  #lesson-notes-list :global(.course-group > summary::before),
+  .students :global(.lesson-group > summary .row-number::before) {
+    content: '▸';
+    display: inline-block;
+    width: 1em;
+    color: var(--text-3);
+    transition: transform 0.15s;
+  }
+  #lesson-notes-list :global(.course-group[open] > summary::before),
+  .students :global(.lesson-group[open] > summary .row-number::before) {
+    transform: rotate(90deg);
+  }
+  #lesson-notes-list :global(.course-title) {
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+  #lesson-notes-list :global(.course-group .muted) {
+    font-size: 13.5px;
+  }
+  #lesson-notes-list :global(.lesson-list) {
+    display: grid;
+    gap: 12px;
+    margin-top: 8px;
   }
   #lesson-notes-list :global(.lesson-row) {
     padding: 18px 22px;
@@ -538,13 +663,6 @@ import Layout from '../layouts/Layout.astro';
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
-  }
-  .model-settings {
-    margin-top: 56px;
-    scroll-margin-top: 80px;
-  }
-  .model-settings :global(h2) {
-    margin-bottom: 4px;
   }
   .model-settings :global(.model-form) {
     display: grid;
@@ -628,7 +746,6 @@ import Layout from '../layouts/Layout.astro';
     margin-right: 8px;
   }
   .add {
-    margin-top: 32px;
     padding: 20px 24px;
   }
   #add-form {
@@ -670,7 +787,7 @@ import Layout from '../layouts/Layout.astro';
   .students {
     display: grid;
     gap: 24px;
-    margin-top: 32px;
+    margin-top: 16px;
   }
   .students :global(.student) {
     padding: 24px 24px 12px;
@@ -768,9 +885,14 @@ import Layout from '../layouts/Layout.astro';
       grid-column: 1 / -1;
     }
   }
-  .students :global(.task-row.locked) {
+  .students :global(.task-row.locked),
+  .students :global(.lesson-group.locked > summary) {
     opacity: 0.5;
   }
+  .students :global(.lesson-group) {
+    border-top: 1px solid var(--line);
+  }
+  .students :global(.lesson-group > summary),
   .students :global(.task-row > summary) {
     display: grid;
     grid-template-columns: 40px 1fr auto 72px;
@@ -780,11 +902,26 @@ import Layout from '../layouts/Layout.astro';
     cursor: pointer;
     list-style: none;
   }
+  .students :global(.lesson-group > summary) {
+    grid-template-columns: 88px 1fr auto 72px;
+  }
+  .students :global(.lesson-group > summary .row-title) {
+    font-weight: 500;
+  }
+  .students :global(.lesson-group > summary::-webkit-details-marker),
   .students :global(.task-row > summary::-webkit-details-marker) {
     display: none;
   }
+  .students :global(.lesson-group > summary:hover .row-title),
   .students :global(.task-row > summary:hover .row-title) {
     color: var(--accent);
+  }
+  /* tasks sit one step in from their lesson */
+  .students :global(.lesson-group > .task-row) {
+    margin-left: 28px;
+  }
+  .students :global(.lesson-group[open]) {
+    padding-bottom: 8px;
   }
   .students :global(.count) {
     font-size: 13px;
@@ -856,6 +993,12 @@ import Layout from '../layouts/Layout.astro';
     }
     .students :global(.task-row > summary) {
       grid-template-columns: 32px 1fr auto;
+    }
+    .students :global(.lesson-group > summary) {
+      grid-template-columns: 88px 1fr auto;
+    }
+    .students :global(.lesson-group > .task-row) {
+      margin-left: 12px;
     }
     .students :global(.count) {
       display: none;
