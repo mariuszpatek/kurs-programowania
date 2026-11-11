@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { KIND_RULES, MAX_CHARS, TUTOR_NAME, courseText, tutorSystem, withoutAnswers, type TutorTask } from '../supabase/functions/assistant/prompt.ts';
+import { KIND_RULES, MAX_CHARS, REMINDER, TUTOR_NAME, courseText, tutorSystem, withoutAnswers, type TutorTask } from '../supabase/functions/assistant/prompt.ts';
 
 const course = { title: 'Python od podstaw', level: 'liceum', assistant_notes: '' };
 const lessons = [
@@ -82,6 +82,10 @@ test('the result: what the page sent, or a note that nothing ran yet; long input
   assert.match(tutorSystem(task(), course, lessons, { ...page, result: 'Wyjście:\n15' }), /<wynik>\nWyjście:\n15\n<\/wynik>/);
   const long = tutorSystem(task(), course, lessons, { ...page, code: 'x'.repeat(MAX_CHARS + 500) });
   assert.ok(long.includes('x'.repeat(MAX_CHARS)) && !long.includes('x'.repeat(MAX_CHARS + 1)));
+});
+
+test('the reminder about gender-neutral Polish is the last thing the tutor reads', () => {
+  assert.ok(tutorSystem(task(), course, lessons, page).endsWith(`</wynik>\n\n${REMINDER}`));
 });
 
 test('an unknown kind falls back to the code rule', () => {
