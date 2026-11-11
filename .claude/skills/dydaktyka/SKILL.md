@@ -1,6 +1,6 @@
 ---
 name: dydaktyka
-description: Lista kontrolna dydaktyki do lekcji i zadań kursów w korepetycje_python/platforma. Używaj przy pisaniu nowej lekcji, przy przeglądzie istniejącej („przejrzyj lekcję N dydaktycznie”) i przy układaniu zadań, podpowiedzi albo notatek nauczyciela.
+description: Lista kontrolna dydaktyki do lekcji i zadań kursów w korepetycje_python/platforma. Używaj przy pisaniu nowej lekcji, przy przeglądzie istniejącej („przejrzyj lekcję N dydaktycznie”) i przy układaniu zadań, podpowiedzi, notatek nauczyciela albo `assistant.md` (notatki dla Kodka, asystenta AI przy zadaniach).
 ---
 
 # Dydaktyka lekcji
@@ -200,6 +200,37 @@ nie daje).
 - Klucz do pytania-zawiasu.
 - Pytania kontrolne na koniec: uczeń odpowiada z pamięci, bez patrzenia w lekcję.
 
+## 9. Kodek, asystent przy zadaniach
+
+Pod edytorem każdego zadania uczeń może zapytać Kodka, czyli AI, jeśli nauczyciel go włączył
+(panel, zakładka Model AI). Wyjątek to „Wytłumacz koledze”, tam rozmawia się z Robciem. Kodek
+podpowiada i tłumaczy błędy, ale nie podaje gotowego rozwiązania. Prompt jest wspólny dla
+wszystkich kursów (`supabase/functions/assistant/prompt.ts` w kurs-programowania), a lekcja
+wpływa na Kodka tylko przez rzeczy wymienione niżej.
+
+Kodek widzi treść zadania, wszystkie `hints:` (i wie, ile z nich uczeń już otworzył), `topics:`
+lekcji od pierwszej do tej z zadaniem, notatkę kursu `assistant.md`, kod ucznia i wynik
+ostatniego uruchomienia albo sprawdzenia. Przy `kind: local` zamiast kodu widzi tylko to, co
+uczeń wpisał w pole „oddaj pracę”. Nie widzi lekcji, notatek nauczyciela, rozwiązań ani testów.
+
+Co z tego wynika przy pisaniu:
+
+- Podpowiedzi są też drabinką dla Kodka. Nie zdradza więcej niż następna podpowiedź, której
+  uczeń jeszcze nie otworzył, i może do niej odesłać. Zadanie bez `hints:` daje mu mniej
+  oparcia, więc trzy stopnie z działu 6 dotyczą każdego zadania z kodem.
+- `topics:` lekcji wyznaczają, czego Kodek może użyć. O rzeczach spoza listy mówi „to będzie
+  później na lekcjach”. Brakujący temat uzna za nieznany, a nadmiarowy podsunie za wcześnie.
+- Treść zadania ma się obejść bez lekcji. „Zrób jak w przykładzie z baterią” nic Kodkowi nie
+  mówi. Nazwij, czego uczeń ma użyć, albo powtórz w jednym zdaniu potrzebny fakt.
+- W `kind: choice` wyjaśnienia odpowiedzi muszą być wcięte pod `- [ ]` / `- [x]`. Kodek dostaje
+  treść bez znaczników `[x]` i bez wciętych linijek. Wyjaśnienie w zwykłym akapicie pod listą
+  zobaczy i może zdradzić dobrą odpowiedź.
+- Wiedzę o kursie wpisz do `assistant.md`. Gdy lekcja wprowadza narzędzie z pułapką (klucz,
+  instalacja, biblioteka zakazana w zadaniu „od zera”), dopisz tam linijkę. Krótko i bez
+  odpowiedzi do zadań. Format jest w JAK-PISAC.
+- Gdy lekcja odsyła do Kodka, odmieniaj: Kodek, Kodka, Kodkowi, z Kodkiem, o Kodku. Pisz bez
+  form z rodzajem ucznia: „Nie wiesz, od czego zacząć? Zapytaj Kodka pod edytorem.”
+
 ## Lista kontrolna przed oddaniem
 
 - [ ] Język: krótkie zdania, „Ty”, codzienne słowa, bez kalk; tekst przeczytany na głos.
@@ -213,6 +244,8 @@ nie daje).
 - [ ] „Wytłumacz koledze” (`kind: explain`) z 3–4 pojęciami i kluczem w `.teacher.md`
       (Musi paść, Dobrze, jeśli padnie, Typowe błędne przekonania, O co dopytać).
 - [ ] Podpowiedzi w trzech stopniach, bez gotowego kodu.
+- [ ] Zadania gotowe pod Kodka: `hints:` przy zadaniach z kodem, pełne `topics:`, treść bez
+      odsyłania do lekcji, wcięte wyjaśnienia w `choice`, pułapki kursu w `assistant.md`.
 - [ ] Fakty sprawdzalne, przykłady z życia licealisty.
 - [ ] Na koniec lekcja, zadania i notatki przez skill `humanizer`.
 
