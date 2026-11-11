@@ -14,6 +14,7 @@ import Explain from '../components/Explain.astro';
   </nav>
   <div class="task-layout">
     <div class="description">
+      <button class="ghost fold-text" id="fold-text" type="button" aria-expanded="true">« Zwiń treść</button>
       <p class="eyebrow" id="task-number"></p>
       <h1 id="task-title"></h1>
       <div class="prose" id="task-body"><p class="loading" role="status" aria-label="Ładuję zadanie…"><span class="typed" aria-hidden="true"><span class="fn">wczytaj</span>(<span class="str">"zadanie"</span>)</span></p></div>
@@ -119,12 +120,31 @@ import { param } from '../lib/url';
       void mountExplain(document.querySelector<HTMLElement>('.explain')!, task);
       return;
     } else {
+      const layout = document.querySelector<HTMLElement>('.task-layout')!;
+      const kodek = document.querySelector<HTMLDetailsElement>('.assistant details')!;
+      let kodekWasOpen = true;
       mountWorkspace(document.querySelector('.workspace')!, {
         language,
         draftKey: task.id,
         starterCode: task.starter_code,
         task: { id: task.id, tests: task.tests },
+        // full screen: the text, the editor and the console; Kodek folded under the text
+        fullscreen: {
+          scope: layout,
+          onChange: (on) => {
+            if (on) kodekWasOpen = kodek.open;
+            kodek.open = on ? false : kodekWasOpen;
+            if (!on) foldText(false);
+          },
+        },
       });
+      const foldText = (folded: boolean) => {
+        layout.classList.toggle('text-folded', folded);
+        $('fold-text').textContent = folded ? '»' : '« Zwiń treść';
+        $('fold-text').setAttribute('aria-expanded', String(!folded));
+        $('fold-text').setAttribute('aria-label', folded ? 'Pokaż treść zadania' : 'Zwiń treść zadania');
+      };
+      $('fold-text').addEventListener('click', () => foldText(!layout.classList.contains('text-folded')));
     }
     void mountAssistant(task.id);
   });
@@ -204,6 +224,79 @@ import { param } from '../lib/url';
     margin: 32px 0 0;
     padding-top: 20px;
     border-top: 1px solid var(--line);
+  }
+
+  /* "Pełny ekran" (src/lib/fullscreen.ts, the button on the editor's bar): the text with the hints and Kodek
+     in a narrow column, the editor and the console (Workspace.astro) in the rest. The elements stay where
+     they are; .work only stops being a box, so its children become cells of this grid. */
+  .fold-text {
+    display: none;
+  }
+  .task-layout.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    padding: 12px;
+    gap: 12px;
+    background: var(--bg);
+    grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: 'text code' 'kodek code';
+    align-items: stretch;
+  }
+  .task-layout.fullscreen .description {
+    grid-area: text;
+    max-width: none;
+    min-height: 0;
+    overflow: auto;
+    padding: 4px 6px 12px 4px;
+  }
+  .task-layout.fullscreen .description h1 {
+    font-size: 1.45rem;
+  }
+  .task-layout.fullscreen .fold-text {
+    display: inline-flex;
+    height: 28px;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .task-layout.fullscreen .work {
+    display: contents;
+  }
+  .task-layout.fullscreen :global(.workspace) {
+    grid-area: code;
+    min-height: 0;
+  }
+  .task-layout.fullscreen :global(.assistant) {
+    grid-area: kodek;
+    margin: 0;
+    padding-top: 12px;
+    max-height: 60vh;
+    overflow: auto;
+  }
+  .task-layout.fullscreen.text-folded {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .task-layout.fullscreen.text-folded .description > :not(.fold-text),
+  .task-layout.fullscreen.text-folded :global(.assistant) {
+    display: none;
+  }
+  .task-layout.fullscreen.text-folded .fold-text {
+    padding: 0 10px;
+  }
+  @media (max-width: 900px) {
+    .task-layout.fullscreen {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-areas: 'text' 'code';
+    }
+    .task-layout.fullscreen .description {
+      max-height: 28vh;
+    }
+    .task-layout.fullscreen :global(.assistant),
+    .task-layout.fullscreen .fold-text {
+      display: none;
+    }
   }
   @media (max-width: 900px) {
     .task-nav {

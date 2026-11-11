@@ -72,6 +72,13 @@ const coursesActive = path === url() || ['course/', 'lesson/', 'task/'].some((p)
       }
     </main>
 
+    <script>
+      // input() in the console waits for answers through this service worker (public/input-sw.js); registered on
+      // every page, the login page too, so it already works when the student opens the first task
+      import { url } from '../lib/url';
+      navigator.serviceWorker?.register(url('input-sw.js')).catch(() => {});
+    </script>
+
     {
       !isPublic && (
         <script>

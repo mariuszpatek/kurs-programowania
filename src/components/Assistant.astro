@@ -1,20 +1,22 @@
 ---
 // The AI tutor at tasks, under the editor: the same chat window as Robcio (src/lib/chat-window.ts). The teacher
 // switches it on in the dashboard ("Model AI"); src/lib/assistant.ts shows it once the task has been loaded and
-// the switch is on.
+// the switch is on. Folds away (task.astro folds it in full screen, where it sits under the task text).
 import { TUTOR_NAME } from '../lib/tutor-name';
 ---
 
 <section class="assistant" hidden>
-  <p class="eyebrow">{TUTOR_NAME}, pomoc przy zadaniu</p>
-  <p class="muted intro">
-    {TUTOR_NAME} to AI, który podpowiada, od czego zacząć, i tłumaczy błędy, ale nie poda gotowego rozwiązania. Widzi treść zadania, Twój kod i wynik ostatniego sprawdzenia.
-  </p>
-  <div class="chat-host"></div>
-  <div class="actions">
-    <button class="ghost restart" type="button" hidden>Wyczyść rozmowę</button>
-    <span class="muted left"></span>
-  </div>
+  <details open>
+    <summary class="eyebrow">{TUTOR_NAME}, pomoc przy zadaniu</summary>
+    <p class="muted intro">
+      {TUTOR_NAME} to AI, który podpowiada, od czego zacząć, i tłumaczy błędy, ale nie poda gotowego rozwiązania. Widzi treść zadania, Twój kod i wynik ostatniego sprawdzenia.
+    </p>
+    <div class="chat-host"></div>
+    <div class="actions">
+      <button class="ghost restart" type="button" hidden>Wyczyść rozmowę</button>
+      <span class="muted left"></span>
+    </div>
+  </details>
 </section>
 
 <style>
@@ -22,6 +24,10 @@ import { TUTOR_NAME } from '../lib/tutor-name';
     margin-top: 28px;
     padding-top: 20px;
     border-top: 1px solid var(--line);
+  }
+  summary {
+    cursor: pointer;
+    margin: 0;
   }
   .intro {
     font-size: 14px;

@@ -4,7 +4,10 @@ import type { FlowProgram } from '../flowchart/model';
 export type CodeError = { type: string; message: string; line: number | null; line_text: string | null; hint: string | null };
 /** One ask() / chat() call to the real model during a run (cost in USD). */
 export type ModelCall = { provider: string; model: string; input_tokens: number; output_tokens: number; cost_usd: number; spent_usd: number; limit_usd: number; stop_reason: string; dropped?: string[] };
-export type RunResult = { output: string; error: CodeError | null; llm?: ModelCall[] };
+/** `stopped`: the student pressed "Zatrzymaj" while the program waited for input(). */
+export type RunResult = { output: string; error: CodeError | null; llm?: ModelCall[]; stopped?: boolean };
+/** input() in the console: gets the output so far, resolves with the student's answer or null ("Zatrzymaj"). */
+export type InputHandler = (output: string) => Promise<string | null>;
 export type TestResult = { name: string; ok: boolean; message: string | null };
 export type CheckResult = { passed: boolean; tests: TestResult[]; run: RunResult | null };
 export type PredictLine = { student: string | null; actual: string | null; ok: boolean };
@@ -33,7 +36,10 @@ export class TimedOut extends Error {}
 export type Runner = {
   /** Starts loading in the background; call as soon as a page with an editor opens. */
   prepare(): Promise<void>;
-  run(code: string, stdin: string): Promise<RunResult>;
+  /** After prepare(): whether input() can ask in the console once `stdin` runs out (see public/input-sw.js). */
+  consoleInput?(): boolean;
+  /** With `onInput` the program asks in the console when `stdin` runs out; without it, EOFError. */
+  run(code: string, stdin: string, onInput?: InputHandler): Promise<RunResult>;
   check(code: string, tests: string): Promise<CheckResult>;
   predict(code: string, guess: string): Promise<PredictResult>;
   /** Records the program line by line for the "step by step" view in lessons. */

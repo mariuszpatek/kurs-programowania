@@ -4,10 +4,12 @@ import { indentWithTab } from '@codemirror/commands';
 import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
 import type { Language } from './languages';
+import './code-size';
 
-// Colours come from the page's CSS variables, so the editor follows the light/dark theme on its own.
+// Colours come from the page's CSS variables, so the editor follows the light/dark theme on its own; the size
+// from A− / A+ (code-size.ts).
 const theme = EditorView.theme({
-  '&': { backgroundColor: 'var(--surface)', color: 'var(--text)', fontSize: '14.5px' },
+  '&': { backgroundColor: 'var(--surface)', color: 'var(--text)', fontSize: 'var(--code-size, 14.5px)' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.75' },
   '.cm-content': { padding: '14px 0', caretColor: 'var(--text)' },
   '.cm-line': { padding: '0 16px 0 6px' },

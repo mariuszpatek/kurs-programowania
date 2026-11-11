@@ -9,6 +9,7 @@
       <span class="file"><span class="dot"></span><span class="file-name"></span></span>
       <span class="status" role="status">Przygotowuję środowisko…</span>
       <button class="reset ghost" hidden title="Wróć do kodu startowego">Od nowa</button>
+      <span class="tools"></span>
     </div>
 
     <div class="editor" aria-label="Edytor kodu"></div>
@@ -28,6 +29,7 @@
       <div class="console-head">
         <span>Wynik</span>
         <span class="time"></span>
+        <button class="stop" type="button" hidden>Zatrzymaj</button>
       </div>
       <pre class="terminal"></pre>
       <div class="error" hidden></div>
@@ -80,9 +82,20 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .reset {
+  .reset,
+  .tools :global(button) {
     height: 28px;
     font-size: 13px;
+  }
+  .tools {
+    display: flex;
+    gap: 4px;
+  }
+  .tools :global(.code-size) {
+    display: flex;
+  }
+  .tools :global(.code-size button) {
+    padding: 0 8px;
   }
   .editor :global(.cm-editor) {
     min-height: 280px;
@@ -118,13 +131,25 @@
   }
   .console-head {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
     padding: 10px 16px 0;
     font-family: var(--mono);
     font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--console-2);
+  }
+  .console-head > span:first-child {
+    flex: 1;
+  }
+  .stop {
+    height: 24px;
+    padding: 0 10px;
+    font-family: var(--sans);
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
   }
   .terminal {
     margin: 0;
@@ -134,7 +159,10 @@
     color: var(--console-text);
     padding: 8px 16px 16px;
     white-space: pre;
-    font-size: 14px;
+    font-size: var(--code-size, 14px);
+  }
+  .terminal :global(.stopped) {
+    color: var(--console-2);
   }
   .terminal.empty {
     color: var(--console-2);
@@ -225,5 +253,74 @@
     color: var(--text-2);
     margin-top: 2px;
     font-size: 14px;
+  }
+
+  /* "Pełny ekran" (src/lib/fullscreen.ts): .fullscreen on the workspace itself (sandbox) or on the task layout
+     around it (task.astro); the editor and the console side by side, the check results under them */
+  .workspace.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    padding: 12px;
+    background: var(--bg);
+  }
+  .workspace.fullscreen,
+  :global(.fullscreen) .workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+  :global(.fullscreen) .ide {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: 'bar bar' 'editor console' 'stdin console' 'actions console';
+  }
+  :global(.fullscreen) .ide-bar {
+    grid-area: bar;
+  }
+  :global(.fullscreen) .editor {
+    grid-area: editor;
+    min-height: 0;
+  }
+  :global(.fullscreen) .editor :global(.cm-editor) {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+  }
+  :global(.fullscreen) .stdin {
+    grid-area: stdin;
+  }
+  :global(.fullscreen) .actions {
+    grid-area: actions;
+  }
+  :global(.fullscreen) .console {
+    grid-area: console;
+    overflow: auto;
+  }
+  :global(.fullscreen) .results {
+    margin: 0;
+    max-height: 30vh;
+    overflow: auto;
+  }
+  @media (max-width: 900px) {
+    :global(.fullscreen) .ide {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto auto minmax(0, 35%);
+      grid-template-areas: 'bar' 'editor' 'stdin' 'actions' 'console';
+    }
+  }
+  /* on a phone the full screen gives little room, so no button; still there to leave it after a rotation */
+  @media (max-width: 560px) {
+    .tools,
+    .tools :global(.code-size) {
+      display: none;
+    }
+    :global(.fullscreen) .tools {
+      display: flex;
+    }
   }
 </style>

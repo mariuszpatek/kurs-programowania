@@ -629,10 +629,87 @@
 
 .playground-output pre {
   white-space: pre-wrap;
+  font-size: var(--code-size, 14px);
+}
+
+.playground-output .stopped {
+  opacity: 0.6;
+}
+
+.playground-tools {
+  display: flex;
+  gap: 4px;
+}
+
+.playground-tools .code-size {
+  display: flex;
+}
+
+.playground-tools .code-size button {
+  padding: 0 8px;
 }
 
 .playground + .stepper {
   margin-top: -8px;
+}
+
+/* "Pełny ekran" (src/lib/fullscreen.ts): the editor on the left, the output on the right */
+.playground.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: 'bar bar' 'editor output' 'stdin output' 'actions output';
+}
+
+.playground.fullscreen .playground-bar {
+  grid-area: bar;
+}
+
+.playground.fullscreen .playground-editor {
+  grid-area: editor;
+  min-height: 0;
+}
+
+.playground.fullscreen .playground-editor .cm-editor {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+.playground.fullscreen .playground-stdin {
+  grid-area: stdin;
+}
+
+.playground.fullscreen .playground-actions {
+  grid-area: actions;
+}
+
+.playground.fullscreen .playground-output {
+  grid-area: output;
+  overflow: auto;
+  border-left: 1px solid var(--line);
+}
+
+.playground.fullscreen .playground-step {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .playground.fullscreen {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto minmax(0, 35%);
+    grid-template-areas: 'bar' 'editor' 'stdin' 'actions' 'output';
+  }
+  .playground.fullscreen .playground-output {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
 }
 
 @media (max-width: 480px) {
@@ -644,8 +721,14 @@
     padding-bottom: 5px;
   }
   .playground-actions kbd,
-  .playground-status {
+  .playground-status,
+  .playground-tools,
+  .playground-tools .code-size {
     display: none;
+  }
+  /* no full screen on a phone; the button stays only to leave it after a rotation */
+  .playground.fullscreen .playground-tools {
+    display: flex;
   }
   .playground-bar {
     justify-content: space-between;

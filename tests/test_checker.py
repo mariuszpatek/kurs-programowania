@@ -59,6 +59,51 @@ class Run(unittest.TestCase):
         self.assertEqual(r.lines, ["1"])
 
 
+class InputInConsole(unittest.TestCase):
+    """With INPUT_BACKEND the program asks in the console once the "Dane dla input()" field runs out."""
+
+    def setUp(self):
+        self.seen = []
+        self.answers = []
+
+        def backend(output):
+            self.seen.append(output)
+            return self.answers.pop(0)
+
+        checker.INPUT_BACKEND = backend
+
+    def tearDown(self):
+        checker.INPUT_BACKEND = None
+
+    def test_answers_come_from_the_console_with_the_output_so_far(self):
+        self.answers = ["kawa", "kawa2026"]
+        code = 'p = input("Hasło: ")\nwhile p != "kawa2026":\n    print("Złe.")\n    p = input("Hasło: ")\nprint("OK")'
+        r = checker.run(code)
+        self.assertIsNone(r.error)
+        self.assertEqual(r.lines, ["Hasło: kawa", "Złe.", "Hasło: kawa2026", "OK"])
+        self.assertEqual(self.seen, ["Hasło: ", "Hasło: kawa\nZłe.\nHasło: "])
+
+    def test_the_field_goes_first(self):
+        self.answers = ["Kot"]
+        r = checker.run('a = input("1: ")\nb = input("2: ")\nprint(a + b)', "Ala\n")
+        self.assertEqual(r.lines, ["1: Ala", "2: Kot", "AlaKot"])
+        self.assertEqual(self.seen, ["1: Ala\n2: "])
+
+    def test_stop_ends_the_program_without_an_error(self):
+        self.answers = [None]
+        r = checker.run('print("start")\ntry:\n    input("? ")\nexcept Exception:\n    print("złapane")\nprint("dalej")')
+        self.assertIsNone(r.error)
+        self.assertTrue(r.stopped)
+        self.assertEqual(r.lines, ["start", "?"])
+        self.assertTrue(r.to_dict()["stopped"])
+
+    def test_without_backend_the_field_runs_out_as_before(self):
+        checker.INPUT_BACKEND = None
+        r = checker.run("input()")
+        self.assertEqual(r.error["type"], "EOFError")
+        self.assertFalse(r.stopped)
+
+
 class Check(unittest.TestCase):
     def test_passing(self):
         r = checker.check('name = input()\nprint("Cześć", name)', SAMPLE_TESTS)

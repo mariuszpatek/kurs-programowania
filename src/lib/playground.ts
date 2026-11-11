@@ -8,6 +8,9 @@ import { TimedOut, type CodeError, type Language } from './languages/types';
 import { mountStepper } from './stepper';
 import { loadDraft, saveDraft, clearDraft } from './progress';
 import { modelUsageText } from './model-usage';
+import { askInConsole } from './console-input';
+import { codeSizeButtons } from './code-size';
+import { closeFullscreen, fullscreenButton } from './fullscreen';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') => {
   const e = document.createElement(tag);
@@ -42,7 +45,8 @@ export function mountPlayground(listing: HTMLElement, source: string, language: 
   const status = el('span', 'playground-status', 'Zmieniaj kod i uruchamiaj. Oryginał wróci po „Przywróć”.');
   const close = el('button', 'ghost', 'Zamknij');
   close.type = 'button';
-  bar.append(el('span', 'playground-label', `${language.label} · Twoja wersja`), status, close);
+  const tools = el('span', 'playground-tools');
+  bar.append(el('span', 'playground-label', `${language.label} · Twoja wersja`), status, tools, close);
 
   const editorBox = el('div', 'playground-editor');
 
@@ -60,11 +64,13 @@ export function mountPlayground(listing: HTMLElement, source: string, language: 
   const actions = el('div', 'playground-actions');
   const run = el('button', 'primary', 'Uruchom');
   run.append(el('kbd', '', 'Ctrl ↵'));
-  const step = el('button', '', 'Krok po kroku');
+  const step = el('button', 'playground-step', 'Krok po kroku');
   const reset = el('button', 'ghost', 'Przywróć');
-  for (const b of [run, step, reset]) b.type = 'button';
+  const stop = el('button', '', 'Zatrzymaj');
+  for (const b of [run, step, reset, stop]) b.type = 'button';
   step.hidden = !runner.trace;
-  actions.append(reset, step, run);
+  stop.hidden = true;
+  actions.append(reset, step, stop, run);
 
   const result = el('figure', 'code-block output playground-output');
   const caption = el('figcaption', '', 'Twój wynik');
@@ -81,6 +87,19 @@ export function mountPlayground(listing: HTMLElement, source: string, language: 
     else saveDraft(key, code);
   });
   editor.focus();
+  tools.append(
+    codeSizeButtons(() => editor.requestMeasure()),
+    fullscreenButton(root, (on) => {
+      // "Krok po kroku" draws under the example, outside the full screen
+      if (on) removeStepper();
+      // the output has its own column in full screen, so it shows before the first run too
+      if (on && result.hidden) {
+        result.hidden = false;
+        output.textContent = '(tu pojawi się wynik programu)';
+      }
+      editor.requestMeasure();
+    }),
+  );
 
   let stepper: HTMLElement | null = null;
   const removeStepper = () => {
@@ -94,16 +113,25 @@ export function mountPlayground(listing: HTMLElement, source: string, language: 
     removeStepper();
     status.textContent = 'Uruchamiam…';
     result.hidden = false;
+    const answer = async (soFar: string) => {
+      result.classList.remove('error');
+      caption.textContent = 'Twój wynik';
+      status.textContent = 'Program czeka na odpowiedź w wyniku.';
+      const reply = await askInConsole(output, soFar, stop);
+      status.textContent = 'Uruchamiam…';
+      return reply;
+    };
     try {
-      const r = await runner.run(editor.state.doc.toString(), stdinField.value);
+      const r = await runner.run(editor.state.doc.toString(), stdinField.value, answer);
       const text = [r.output.replace(/\n$/, ''), r.error && errorText(r.error)].filter(Boolean).join('\n\n');
-      output.textContent = text || '(program nic nie wypisał)';
+      output.textContent = text || (r.stopped ? '' : '(program nic nie wypisał)');
+      if (r.stopped) output.append(el('span', 'stopped', `${text ? '\n' : ''}(program zatrzymany)`));
       result.classList.toggle('error', Boolean(r.error));
       caption.textContent = r.error ? 'Twój wynik: błąd' : 'Twój wynik';
       status.textContent = modelUsageText(r.llm);
     } catch (e) {
       output.textContent =
-        e instanceof TimedOut ? 'Program działał za długo i został zatrzymany. Może czeka na dane dla input()?' : String(e);
+        e instanceof TimedOut ? 'Program działał za długo i został zatrzymany. Może pętla nigdy się nie kończy?' : String(e);
       result.classList.add('error');
       status.textContent = '';
     }
@@ -115,6 +143,11 @@ export function mountPlayground(listing: HTMLElement, source: string, language: 
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       runCode();
+    }
+    // the changed code saves itself; Ctrl+S only says so instead of the browser's "Save page"
+    if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      status.textContent = 'Zapisane w tej przeglądarce.';
     }
   });
   step.addEventListener('click', () => {
@@ -131,6 +164,7 @@ export function mountPlayground(listing: HTMLElement, source: string, language: 
     status.textContent = 'Wrócił oryginalny przykład.';
   });
   close.addEventListener('click', () => {
+    if (root.classList.contains('fullscreen')) closeFullscreen();
     removeStepper();
     editor.destroy();
     root.remove();

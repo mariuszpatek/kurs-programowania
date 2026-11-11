@@ -115,6 +115,15 @@ def _user_functions(namespace):
 LLM_BACKEND = None
 _llm_calls = []
 
+# input() in the console. On "Uruchom" in the browser, once the "Dane dla input()" field runs out, the worker's
+# INPUT_BACKEND gets the output so far (ending with the program's question) and waits for the student's answer
+# typed in the console. None means the student pressed "Zatrzymaj". Without it the field running out is EOFError.
+INPUT_BACKEND = None
+
+
+class StoppedByStudent(BaseException):
+    """"Zatrzymaj" while the program waited for input(). A BaseException, so `except Exception` lets it through."""
+
 
 class ModelError(Exception):
     """The model could not answer: limit, provider error, no connection."""
@@ -174,9 +183,10 @@ def _model_functions(chat_with):
 
 
 class RunResult:
-    def __init__(self, output, error, variables, functions=None, builtins_=None, llm=None):
+    def __init__(self, output, error, variables, functions=None, builtins_=None, llm=None, stopped=False):
         self.output = output
         self.error = error
+        self.stopped = stopped
         self.variables = variables
         self.functions = functions or {}
         # the student's builtins: a fake model installed later reaches functions defined in this run
@@ -188,7 +198,7 @@ class RunResult:
         return [l.rstrip() for l in self.output.rstrip("\n").split("\n")] if self.output.strip() else []
 
     def to_dict(self):
-        return {"output": self.output, "error": self.error, "llm": self.llm}
+        return {"output": self.output, "error": self.error, "llm": self.llm, "stopped": self.stopped}
 
 
 def _student_namespace(stdin, out, model=None, main=True):
@@ -199,9 +209,14 @@ def _student_namespace(stdin, out, model=None, main=True):
 
     def fake_input(prompt=""):
         out.write(str(prompt))
-        if not pending:
+        if pending:
+            value = pending.pop(0)
+        elif INPUT_BACKEND is not None:
+            value = INPUT_BACKEND(out.getvalue())
+            if not isinstance(value, str):
+                raise StoppedByStudent
+        else:
             raise EOFError("brak danych w polu „Dane dla input()”")
-        value = pending.pop(0)
         out.write(value + "\n")
         return value
 
@@ -220,6 +235,7 @@ def run(code, stdin="", model=None, main=True):
     _llm_calls.clear()
     real_stdout = sys.stdout
     error = None
+    stopped = False
     try:
         compiled = compile(code, STUDENT_FILE, "exec")
         sys.stdout = out
@@ -227,12 +243,14 @@ def run(code, stdin="", model=None, main=True):
     except BaseException as exc:  # noqa: BLE001 - student code may raise anything
         if isinstance(exc, KeyboardInterrupt):
             raise
-        if not isinstance(exc, SystemExit):
+        if isinstance(exc, StoppedByStudent):
+            stopped = True
+        elif not isinstance(exc, SystemExit):
             error = _describe_error(exc, code)
     finally:
         sys.stdout = real_stdout
     return RunResult(
-        out.getvalue(), error, _user_variables(namespace), _user_functions(namespace), namespace["__builtins__"], list(_llm_calls)
+        out.getvalue(), error, _user_variables(namespace), _user_functions(namespace), namespace["__builtins__"], list(_llm_calls), stopped
     )
 
 

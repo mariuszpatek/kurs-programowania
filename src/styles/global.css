@@ -1066,3 +1066,29 @@ textarea {
     transition: none !important;
   }
 }
+
+/* "Pełny ekran" of an editor (src/lib/fullscreen.ts): the page under it does not scroll */
+html.code-fullscreen {
+  overflow: hidden;
+}
+
+/* input() in the console (src/lib/console-input.ts): the field right after the program's question */
+.console-input,
+.console-input:focus {
+  width: min(28ch, 70%);
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px dashed currentColor;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.console-input::placeholder {
+  color: inherit;
+  opacity: 0.45;
+}

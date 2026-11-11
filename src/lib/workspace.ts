@@ -4,6 +4,9 @@ import { TimedOut, type CodeError, type RunResult } from './languages/types';
 import { loadDraft, saveDraft, saveAttempt, lastAttemptCode } from './progress';
 import { taskState } from './state';
 import { modelUsageText } from './model-usage';
+import { askInConsole } from './console-input';
+import { codeSizeButtons } from './code-size';
+import { fullscreenButton } from './fullscreen';
 
 export type WorkspaceOptions = {
   language: Language;
@@ -13,6 +16,8 @@ export type WorkspaceOptions = {
   starterStdin?: string;
   /** Present for checked tasks; absent in the sandbox. */
   task?: { id: string; tests: string };
+  /** What "Pełny ekran" spreads over the window (the task with its text); by default the workspace alone. */
+  fullscreen?: { scope: HTMLElement; onChange?: (on: boolean) => void };
 };
 
 const el = (tag: string, text = '', className = '') => {
@@ -54,6 +59,23 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   // No draft in this browser: continue from the last attempt (e.g. the student switched computers).
   if (options.task && draft === null) lastAttemptCode(options.task.id).then((code) => code && setDoc(editor, code));
 
+  const console_ = $('.console');
+  const terminal = $('.terminal');
+  const stopButton = $<HTMLButtonElement>('.stop');
+  $('.tools').append(
+    codeSizeButtons(() => editor.requestMeasure()),
+    fullscreenButton(options.fullscreen?.scope ?? root, (on) => {
+      // the console has its own column in full screen, so it shows before the first run too
+      if (on && console_.hidden) {
+        console_.hidden = false;
+        terminal.textContent = '(tu pojawi się wynik programu)';
+        terminal.classList.add('empty');
+      }
+      editor.requestMeasure();
+      options.fullscreen?.onChange?.(on);
+    }),
+  );
+
   let runnerReady = false;
   const busy = (yes: boolean, text = '') => {
     runButton.disabled = yes || !runnerReady;
@@ -62,7 +84,13 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   };
   if (runner) {
     runner.prepare().then(
-      () => ((runnerReady = true), busy(false)),
+      () => {
+        runnerReady = true;
+        busy(false);
+        if (runner.consoleInput?.()) {
+          $('.stdin .hint').textContent = 'Program zapyta o dane w oknie wyniku. Tu możesz wpisać odpowiedzi z góry, każdą w osobnej linijce: dostanie je najpierw.';
+        }
+      },
       (e) => (status.textContent = `${e.message}. Odśwież stronę.`),
     );
   } else {
@@ -82,10 +110,10 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   }
 
   function showOutput(r: RunResult, ms?: number) {
-    const terminal = $('.terminal');
-    $('.console').hidden = false;
-    terminal.textContent = r.output || (r.error ? '' : '(program nic nie wypisał)');
-    terminal.classList.toggle('empty', !r.output);
+    console_.hidden = false;
+    terminal.textContent = r.output || (r.error || r.stopped ? '' : '(program nic nie wypisał)');
+    if (r.stopped) terminal.append(el('span', `${r.output.endsWith('\n') || !r.output ? '' : '\n'}(program zatrzymany)`, 'stopped'));
+    terminal.classList.toggle('empty', !r.output && !r.stopped);
     terminal.hidden = !r.output && Boolean(r.error);
     $('.time').textContent = [ms ? `${(ms / 1000).toFixed(2)} s` : '', modelUsageText(r.llm)].filter(Boolean).join(' · ');
     showError(r.error);
@@ -100,7 +128,7 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
         message: 'Program działał za długo i został zatrzymany.',
         line: null,
         line_text: null,
-        hint: 'Może pętla nigdy się nie kończy albo program czeka na dane? Sprawdź pole „Dane dla input()”.',
+        hint: 'Może pętla nigdy się nie kończy? Sprawdź warunek i to, czy coś w pętli go zmienia.',
       },
     });
   }
@@ -110,8 +138,22 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
     busy(true, 'Uruchamiam…');
     $('.results').hidden = true;
     const started = performance.now();
+    // the time shown is computing only, without the student's thinking
+    let waited = 0;
+    const answer = async (output: string) => {
+      const asked = performance.now();
+      console_.hidden = false;
+      terminal.hidden = false;
+      showError(null);
+      status.textContent = 'Program czeka na odpowiedź w oknie wyniku.';
+      const reply = await askInConsole(terminal, output, stopButton);
+      status.textContent = 'Uruchamiam…';
+      waited += performance.now() - asked;
+      return reply;
+    };
     try {
-      showOutput(await runner.run(editor.state.doc.toString(), stdin.value), performance.now() - started);
+      const result = await runner.run(editor.state.doc.toString(), stdin.value, answer);
+      showOutput(result, performance.now() - started - waited);
     } catch (e) {
       e instanceof TimedOut ? showTimeout() : (status.textContent = String(e));
     }
@@ -123,6 +165,11 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       run();
+    }
+    // the draft saves itself on every change; Ctrl+S only says so instead of the browser's "Save page"
+    if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      status.textContent = 'Zapisane w tej przeglądarce.';
     }
   });
 

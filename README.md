@@ -199,5 +199,5 @@ npm run check     # astro check
 
 - Sprawdzanie odbywa się w przeglądarce, więc uczeń znający narzędzia deweloperskie mógłby podrobić wynik. Dlatego panel pokazuje też kod każdej próby.
 - Uczeń z dostępem do zadania widzi jego testy (przychodzą do przeglądarki). Wzorcowe rozwiązania są tylko w prywatnym folderze.
-- `input()` czyta z pola „Dane dla input()”, a nie interaktywnie (GitHub Pages nie pozwala ustawić nagłówków potrzebnych do interaktywnego wejścia).
+- `input()` przy „Uruchom” pyta w oknie wyniku, gdy w polu „Dane dla input()” zabraknie linijek: wątek Pythona czeka na odpowiedź synchronicznym zapytaniem do service workera `public/input-sw.js` (GitHub Pages nie pozwala ustawić nagłówków potrzebnych do `SharedArrayBuffer`). Gdy service worker nie działa (pierwsze wejście, tryb `astro dev`, gdzie wątek leży poza jego zakresem, przeglądarka go blokuje), `input()` czyta tylko z pola. „Sprawdź” i „Krok po kroku” zawsze biorą dane z góry.
 - Uruchamianie kodu w przeglądarce jest tylko dla Pythona. Kurs w innym języku (np. C#) będzie potrzebował osobnego mechanizmu.
