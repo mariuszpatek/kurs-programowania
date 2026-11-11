@@ -1092,3 +1092,20 @@ html.code-fullscreen {
   color: inherit;
   opacity: 0.45;
 }
+
+.console-send,
+.console-send:hover {
+  height: 1.6em;
+  margin-left: 8px;
+  padding: 0 10px;
+  vertical-align: baseline;
+  font-family: var(--sans);
+  font-size: 12px;
+  border-color: var(--console-text);
+  background: var(--console-text);
+  color: var(--console);
+}
+
+.console-send:hover {
+  opacity: 0.85;
+}
