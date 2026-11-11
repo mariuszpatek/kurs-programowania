@@ -5,7 +5,7 @@
 
 export const MAX_CHARS = 6000;
 /** Same as src/lib/tutor-name.ts: change both together. */
-export const TUTOR_NAME = 'Debuś';
+export const TUTOR_NAME = 'Kodek';
 
 export type TutorTask = { kind: string; title: string; body_md: string; predict_code: string; hints: string[]; lesson_number: number };
 export type TutorCourse = { title: string; level: string; assistant_notes: string };

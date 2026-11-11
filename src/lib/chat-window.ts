@@ -1,4 +1,4 @@
-// The chat window shared by Robcio ("Wytłumacz koledze", explain.ts) and Debuś (the tutor at tasks,
+// The chat window shared by Robcio ("Wytłumacz koledze", explain.ts) and Kodek (the tutor at tasks,
 // assistant.ts): Deep Chat styled like the site. Callers load it with `await import('deep-chat')` first, so
 // pages without a chat don't download it.
 import type { DeepChat } from 'deep-chat';
