@@ -5,7 +5,7 @@
 // conversation, the student's code and the latest result.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { buildCall, parseResponse, providerError, withoutOptionalParams, type Effort, type Message, type Provider } from '../_shared/providers.ts';
-import { MAX_CHARS, tutorSystem } from './prompt.ts';
+import { MAX_CHARS, TUTOR_NAME, tutorSystem } from './prompt.ts';
 
 const MAX_TOKENS = 1500;
 
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     .eq('id', String(body?.taskId ?? ''))
     .maybeSingle();
   if (!task) return json({ error: 'Nie ma takiego zadania. Odśwież stronę.' }, 404);
-  if (task.kind === 'explain') return json({ error: 'W tym zadaniu rozmawiasz z Robciem, nie z asystentem.' }, 400);
+  if (task.kind === 'explain') return json({ error: 'W tym zadaniu rozmawiasz z Robciem.' }, 400);
   const [{ data: course }, { data: lessons }, { data: hintViews }] = await Promise.all([
     admin.from('lms_courses').select('title, level, assistant_notes').eq('id', task.course_id).maybeSingle(),
     admin.from('lms_lessons').select('number, title, topics').eq('course_id', task.course_id).lte('number', task.lesson_number).order('number'),
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get(KEYS[provider]);
   if (!apiKey) {
     console.error('missing secret', KEYS[provider]);
-    return json({ error: 'Asystent jest chwilowo niedostępny.' }, 502);
+    return json({ error: `${TUTOR_NAME} jest chwilowo niedostępny.` }, 502);
   }
 
   const request = { messages, system, max_tokens: MAX_TOKENS, effort: (settings.effort ?? undefined) as Effort | undefined };
@@ -95,6 +95,6 @@ Deno.serve(async (req) => {
     return json({ error: e.message }, e.status);
   }
   const result = parseResponse(provider, await response.json());
-  if (!result.text.trim()) return json({ error: 'Asystent nie odpowiedział. Spróbuj zapytać inaczej.' }, 502);
+  if (!result.text.trim()) return json({ error: `${TUTOR_NAME} nie odpowiedział. Spróbuj zapytać inaczej.` }, 502);
   return json({ reply: result.text });
 });

@@ -1,72 +1,17 @@
 // "Wytłumacz koledze" (beta): wires up components/Explain.astro. The chat window is Deep Chat (loaded only on
 // these tasks); the conversation goes through the edge function `explain`, which also saves the attempt with
 // the summary. This browser only remembers the unfinished chat; a finished one comes back from that attempt.
-import type { DeepChat } from 'deep-chat';
 import { supabase, currentUser } from './supabase';
 import { renderUntrustedMarkdown } from './markdown';
 import { escapeHtml } from './languages/highlight';
+import { bubble, createChat, savedMessages, typing, type Message } from './chat-window';
 
-type Message = { role: 'user' | 'assistant'; content: string };
 type Level = 'umie' | 'czesciowo' | 'nie';
 // name/verdict: summaries saved before the teacher's summary prompt
 type Concept = { concept?: string; level?: Level; name?: string; verdict?: Level; comment: string };
 type Summary = { concepts: Concept[]; advice: string };
 
 const LEVEL: Record<Level, string> = { umie: '✓ umiesz', czesciowo: '~ częściowo', nie: '✗ jeszcze nie' };
-
-const bubble = (m: Message) =>
-  m.role === 'user' ? { role: 'user', text: m.content } : { role: 'ai', html: renderUntrustedMarkdown(m.content) };
-
-/** Deep Chat styled with the site's colours (CSS variables reach into its shadow DOM). */
-function createChat(): DeepChat {
-  const chat = document.createElement('deep-chat') as DeepChat;
-  chat.style.display = 'block';
-  chat.style.width = '100%';
-  chat.chatStyle = {
-    width: '100%',
-    height: '480px',
-    border: '1px solid var(--line)',
-    borderRadius: '12px',
-    backgroundColor: 'var(--surface)',
-    fontFamily: 'inherit',
-    fontSize: '15px',
-  };
-  chat.messageStyles = {
-    default: {
-      shared: { bubble: { maxWidth: '85%', lineHeight: '1.5', padding: '8px 12px' } },
-      user: { bubble: { backgroundColor: 'var(--accent)', color: '#fff' } },
-      ai: { bubble: { backgroundColor: 'var(--surface-2)', color: 'var(--text)' } },
-    },
-    html: { shared: { bubble: { maxWidth: '85%', lineHeight: '1.5', padding: '8px 12px' } }, ai: { bubble: { backgroundColor: 'var(--surface-2)', color: 'var(--text)' } } },
-    error: { bubble: { backgroundColor: 'var(--bad-bg)', color: 'var(--bad)' } },
-  };
-  chat.names = { ai: { text: 'Robcio', style: { color: 'var(--text-2)' } }, user: { text: 'Ty', style: { color: 'var(--text-2)' } } };
-  chat.textInput = {
-    placeholder: { text: 'Twoje wyjaśnienie…' },
-    characterLimit: 2000,
-    styles: {
-      container: { backgroundColor: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: '10px', width: '90%' },
-      text: { color: 'var(--text)', padding: '8px 10px' },
-    },
-  };
-  chat.errorMessages = { displayServiceErrorMessages: true };
-  // the "…" bubble is switched by hand (Deep Chat replaces toggle when it renders), so it also shows while
-  // Robcio writes his first message, which Deep Chat itself does not ask for
-  chat.displayLoadingBubble = { toggle: () => {} };
-  return chat;
-}
-
-const typingShown = new WeakSet<DeepChat>();
-
-/** Shows or hides the "Robcio is writing" dots. Deep Chat's toggle() adds new dots when they are not the last
- * bubble, so it is called only when the state really changes and nothing else is added in between. */
-const typing = (chat: DeepChat, on: boolean) => {
-  const bubble = chat.displayLoadingBubble;
-  if (typeof bubble !== 'object' || on === typingShown.has(chat)) return;
-  if (on) typingShown.add(chat);
-  else typingShown.delete(chat);
-  bubble.toggle(on ? { role: 'ai' } : undefined);
-};
 
 export async function mountExplain(root: HTMLElement, task: { id: string }) {
   const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
@@ -81,13 +26,9 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
 
   let history: Message[] = [];
   try {
-    const saved = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
-    // a message without text (left by an older version) would break the whole chat
-    history = Array.isArray(saved)
-      ? saved.filter((m) => (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string')
-      : [];
+    history = savedMessages(localStorage.getItem(storageKey));
   } catch {
-    history = [];
+    // storage blocked: start a new conversation
   }
   const remember = () => {
     try {
@@ -108,7 +49,7 @@ export async function mountExplain(root: HTMLElement, task: { id: string }) {
   }
 
   await import('deep-chat');
-  const chat = createChat();
+  const chat = createChat({ name: 'Robcio', placeholder: 'Twoje wyjaśnienie…', height: '480px', characterLimit: 2000 });
   chat.history = history.map(bubble);
   chat.connect = {
     handler: async (body, signals) => {

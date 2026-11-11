@@ -4,6 +4,7 @@
 // The edge functions `llm`, `assistant` and `explain` read the same row (supabase/migrations/…_lms_llm.sql,
 // …_lms_ai_settings.sql).
 import { supabase } from './supabase';
+import { TUTOR_NAME } from './tutor-name';
 
 type Settings = {
   provider: 'anthropic' | 'openrouter';
@@ -103,7 +104,7 @@ export async function mountModelSettings(root: HTMLElement) {
     field('Kto odpowiada na ask() i chat()', providers),
     el('div', '', 'model-grid'),
     el('div', '', 'model-grid'),
-    el('h3', 'Asystent przy zadaniach'),
+    el('h3', `Asystent przy zadaniach (${TUTOR_NAME})`),
     el('div', '', 'model-grid'),
     el('h3', 'Wytłumacz koledze (Robcio)'),
     el('div', '', 'model-grid'),
@@ -196,7 +197,7 @@ export async function mountModelSettings(root: HTMLElement) {
   root.append(
     el(
       'p',
-      'Model, z którego korzystają ask() i chat() w zadaniach i asystent przy zadaniach, oraz ustawienia rozmów z Robciem. Klucze API są w sekretach funkcji w Supabase, nie tutaj. Po przekroczeniu limitu w dolarach model odmawia do końca miesiąca.',
+      `Model, z którego korzystają ask() i chat() w zadaniach i asystent przy zadaniach (${TUTOR_NAME}), oraz ustawienia rozmów z Robciem. Klucze API są w sekretach funkcji w Supabase, nie tutaj. Po przekroczeniu limitu w dolarach model odmawia do końca miesiąca.`,
       'muted',
     ),
     form,

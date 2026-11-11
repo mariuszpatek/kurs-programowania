@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { KIND_RULES, MAX_CHARS, courseText, tutorSystem, withoutAnswers, type TutorTask } from '../supabase/functions/assistant/prompt.ts';
+import { readFileSync } from 'node:fs';
+import { KIND_RULES, MAX_CHARS, TUTOR_NAME, courseText, tutorSystem, withoutAnswers, type TutorTask } from '../supabase/functions/assistant/prompt.ts';
 
 const course = { title: 'Python od podstaw', level: 'liceum', assistant_notes: '' };
 const lessons = [
@@ -17,6 +18,13 @@ const task = (over: Partial<TutorTask> = {}): TutorTask => ({
   ...over,
 });
 const page = { code: 'wiek = 15', result: '', hintsOpened: 0 };
+
+test('the tutor knows its name, the same one the site shows', () => {
+  assert.match(tutorSystem(task(), course, lessons, page), new RegExp(`^# Kim jesteś
+
+Nazywasz się ${TUTOR_NAME} `));
+  assert.match(readFileSync('src/lib/tutor-name.ts', 'utf-8'), new RegExp(`TUTOR_NAME = '${TUTOR_NAME}'`));
+});
 
 test('every kind of task the tutor is shown at has its own rule; explain is Robcio, so it has none', () => {
   for (const kind of ['code', 'predict', 'choice', 'local']) assert.ok(KIND_RULES[kind]?.rule, kind);

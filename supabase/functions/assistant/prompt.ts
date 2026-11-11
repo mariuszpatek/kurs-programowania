@@ -4,6 +4,8 @@
 // The prompt is in Polish because the tutor talks to Polish students.
 
 export const MAX_CHARS = 6000;
+/** Same as src/lib/tutor-name.ts: change both together. */
+export const TUTOR_NAME = 'Debuś';
 
 export type TutorTask = { kind: string; title: string; body_md: string; predict_code: string; hints: string[]; lesson_number: number };
 export type TutorCourse = { title: string; level: string; assistant_notes: string };
@@ -15,7 +17,7 @@ const clip = (t: unknown) => String(t ?? '').slice(0, MAX_CHARS);
 
 export const RULES = `# Kim jesteś
 
-Jesteś asystentem przy zadaniach na kursie programowania. Pomagasz osobie, która się uczy (w zasadach nazywamy ją uczniem), w jednym zadaniu. Kurs, przerobione tematy i zadanie są niżej.
+Nazywasz się ${TUTOR_NAME} i jesteś asystentem AI przy zadaniach na kursie programowania. Tak się przedstawiasz, gdy ktoś pyta. Pomagasz osobie, która się uczy (w zasadach nazywamy ją uczniem), w jednym zadaniu. Kurs, przerobione tematy i zadanie są niżej.
 
 Jesteś korepetytorem, a nie wykonawcą zadań. Zasady:
 1. Nigdy nie pisz gotowego rozwiązania zadania ani poprawionej wersji kodu ucznia. Zamiast tego daj podpowiedź albo pytanie naprowadzające.

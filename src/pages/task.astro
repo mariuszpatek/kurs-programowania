@@ -32,12 +32,12 @@ import Explain from '../components/Explain.astro';
         <span class="eyebrow">Następne</span>
         <a href="#"></a>
       </p>
-      <Assistant />
     </div>
     <div class="work">
       <Workspace />
       <Predict />
       <LocalTask />
+      <Assistant />
     </div>
   </div>
 </Layout>
@@ -154,12 +154,17 @@ import { param } from '../lib/url';
   .task-layout.choice {
     grid-template-columns: minmax(0, 760px);
   }
-  .task-layout.choice .work {
+  /* closed questions (and Robcio) are in the text column; the work column only holds the tutor, under them */
+  .task-layout.choice .work:not(:has(.assistant:not([hidden]))) {
     display: none;
   }
   .work {
     position: sticky;
     top: 80px;
+  }
+  /* with the tutor the column is taller than the screen, and a sticky one would hide the chat */
+  .work:has(.assistant:not([hidden])) {
+    position: static;
   }
   .description {
     max-width: 62ch;

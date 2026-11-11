@@ -30,6 +30,7 @@ import Layout from '../layouts/Layout.astro';
   import { requireAccess } from '../lib/content';
   import { supabase } from '../lib/supabase';
   import { url } from '../lib/url';
+  import { TUTOR_NAME } from '../lib/tutor-name';
 
   type AiUsage = {
     explain: { used: number; limit: number };
@@ -69,7 +70,7 @@ import Layout from '../layouts/Layout.astro';
     box.replaceChildren(
       limitRow('Wytłumacz koledze', u.explain.used, u.explain.limit, `dziś ${u.explain.used} z ${u.explain.limit} wiadomości`, 'Odnowi się o północy'),
       ...(u.assistant.enabled
-        ? [limitRow('Asystent przy zadaniach', u.assistant.used, u.assistant.limit, `dziś ${u.assistant.used} z ${u.assistant.limit} pytań`, 'Odnowi się o północy')]
+        ? [limitRow(`Asystent przy zadaniach (${TUTOR_NAME})`, u.assistant.used, u.assistant.limit, `dziś ${u.assistant.used} z ${u.assistant.limit} pytań`, 'Odnowi się o północy')]
         : []),
       limitRow('Model w zadaniach (ask)', Number(u.llm.spent_usd), Number(u.llm.limit_usd), `w tym miesiącu ${usd(u.llm.spent_usd)} z ${usd(u.llm.limit_usd)}`, 'Odnowi się 1. dnia miesiąca'),
     );

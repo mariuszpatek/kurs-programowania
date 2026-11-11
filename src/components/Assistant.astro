@@ -1,60 +1,46 @@
 ---
-// AI tutor chat. The teacher switches it on in the dashboard ("Model AI"); src/lib/assistant.ts shows it
-// once the task has been loaded and the switch is on.
+// The AI tutor at tasks, under the editor: the same chat window as Robcio (src/lib/chat-window.ts). The teacher
+// switches it on in the dashboard ("Model AI"); src/lib/assistant.ts shows it once the task has been loaded and
+// the switch is on.
+import { TUTOR_NAME } from '../lib/tutor-name';
 ---
 
 <section class="assistant" hidden>
-  <p class="eyebrow">Asystent</p>
-  <p class="muted intro">Podpowiada i tłumaczy błędy, ale nie poda gotowego rozwiązania. Widzi Twój kod i wynik ostatniego sprawdzenia.</p>
-  <div class="chat" />
-  <form>
-    <textarea id="assistant-question" rows="2" placeholder="Np. Co znaczy ten błąd? Od czego zacząć?" required />
-    <button class="primary" type="submit">
-      Zapytaj
-    </button>
-  </form>
+  <p class="eyebrow">{TUTOR_NAME}, pomoc przy zadaniu</p>
+  <p class="muted intro">
+    {TUTOR_NAME} to AI, który podpowiada, od czego zacząć, i tłumaczy błędy, ale nie poda gotowego rozwiązania. Widzi treść zadania, Twój kod i wynik ostatniego sprawdzenia.
+  </p>
+  <div class="chat-host"></div>
+  <div class="actions">
+    <button class="ghost restart" type="button" hidden>Wyczyść rozmowę</button>
+    <span class="muted left"></span>
+  </div>
 </section>
 
 <style>
   .assistant {
-    margin-top: 40px;
-    padding-top: 24px;
+    margin-top: 28px;
+    padding-top: 20px;
     border-top: 1px solid var(--line);
   }
   .intro {
     font-size: 14px;
     margin: 6px 0 14px;
   }
-  .chat {
+  .chat-host {
+    min-height: 380px;
+  }
+  .actions {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 420px;
-    overflow-y: auto;
-    margin-bottom: 12px;
+    align-items: center;
+    gap: 8px 12px;
+    flex-wrap: wrap;
+    margin-top: 10px;
   }
-  .chat :global(.message) {
-    padding: 9px 13px;
-    border-radius: 10px;
-    font-size: 15px;
+  .actions:has(.restart[hidden]):has(.left:empty) {
+    display: none;
   }
-  .chat :global(.message p) {
-    margin: 4px 0;
-  }
-  .chat :global(.user) {
-    align-self: flex-end;
-    background: var(--button);
-    color: var(--button-text);
-    max-width: 85%;
-    white-space: pre-wrap;
-  }
-  .chat :global(.assistant-reply) {
-    background: var(--surface);
-    border: 1px solid var(--line);
-  }
-  form {
-    display: flex;
-    gap: 8px;
-    align-items: flex-end;
+  .left {
+    font-size: 13px;
   }
 </style>
