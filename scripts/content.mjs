@@ -2,7 +2,10 @@
 //
 // <content root>/                     default ../korepetycje_python/platforma (or CONTENT_DIR in .env)
 //   <course>/course.yaml              slug, title, language, level, description, position? (step in the learning path)
-//   <course>/tutor-prompt.md          AI tutor prompt; {{topics}} = topics of lessons so far
+//   <course>/tutor-prompt.md          prompt the student copies into their own AI chat ("Pomoc z AI" in a lesson);
+//                                     {{topics}} = topics of lessons so far
+//   <course>/assistant.md             note for the tutor at tasks (supabase/functions/assistant): who the students
+//                                     are, what the tutor should know about the course; optional
 //   <course>/lessons/01.md            frontmatter: number, title, topics
 //   <course>/lessons/01.teacher.md    notes for the teacher only (plan, extra examples, answers); optional
 //                                     "## @slug Title" sections show up at <!-- nauczyciel: slug --> in the lesson
@@ -101,6 +104,7 @@ export function loadCourse(dir) {
     if (!course[field]) throw new Error(`${join(dir, 'course.yaml')}: missing ${field}`);
   }
   course.tutor_prompt = readIfExists(join(dir, 'tutor-prompt.md'))?.trim() ?? '';
+  course.assistant_notes = readIfExists(join(dir, 'assistant.md'))?.trim() ?? '';
 
   const usedDrawings = new Set();
   const lessons = listDir(join(dir, 'lessons'))

@@ -4,8 +4,9 @@ import { taskState } from './state';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
-/** Wires up components/Assistant.astro; does nothing when the teacher has not switched the tutor on. */
-export async function mountAssistant(context: { taskId: string; task: string; topics: string }) {
+/** Wires up components/Assistant.astro; does nothing when the teacher has not switched the tutor on.
+ *  The function reads the task, course and hints itself; the page sends the code and the latest result. */
+export async function mountAssistant(taskId: string) {
   const root = document.querySelector<HTMLElement>('.assistant');
   if (!root) return;
   const { data: enabled } = await supabase.rpc('lms_assistant_enabled');
@@ -14,7 +15,7 @@ export async function mountAssistant(context: { taskId: string; task: string; to
   const form = root.querySelector('form')!;
   const input = form.querySelector('textarea')!;
   const chat = root.querySelector<HTMLElement>('.chat')!;
-  const storageKey = `kurs:assistant:${context.taskId}`;
+  const storageKey = `kurs:assistant:${taskId}`;
 
   let history: Message[] = [];
   try {
@@ -53,7 +54,7 @@ export async function mountAssistant(context: { taskId: string; task: string; to
     const waiting = append({ role: 'assistant', content: '…' });
 
     const { data, error } = await supabase.functions.invoke('assistant', {
-      body: { messages: history.slice(-10), task: context.task, topics: context.topics, code: taskState.code, result: taskState.lastResult },
+      body: { messages: history.slice(-10), taskId, code: taskState.code, result: taskState.lastResult },
     });
     waiting.remove();
     if (error || !data?.reply) {

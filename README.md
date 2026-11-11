@@ -20,7 +20,8 @@ Treść leży w prywatnym folderze `../korepetycje_python/platforma/` (inny moż
 ```
 python-podstawy/
   course.yaml                       slug, title, language, level, description
-  tutor-prompt.md                   prompt korepetytora AI; {{topics}} = tematy lekcji do bieżącej
+  tutor-prompt.md                   prompt do skopiowania do własnego czatu AI ("Pomoc z AI" w lekcji); {{topics}} = tematy lekcji do bieżącej
+  assistant.md                      notatka dla asystenta przy zadaniach: kim są uczniowie kursu, co ma wiedzieć o kursie (opcjonalnie)
   lessons/01.md                     frontmatter: number, title, topics
   lessons/01.teacher.md             notatki tylko dla nauczyciela (plan, pytania, notatki przy fragmentach lekcji)
   lessons/img/nazwa.svg             rysunki; generator: lessons/img/_rysunki.py
@@ -171,7 +172,7 @@ supabase secrets set ANTHROPIC_API_KEY=... --project-ref <project-ref>
 supabase secrets set OPENROUTER_API_KEY=... --project-ref <project-ref>   # tylko gdy w panelu wybrany OpenRouter
 ```
 
-`llm` i `assistant` korzystają ze wspólnego `supabase/functions/_shared/providers.ts`. Modele i limity wszystkich trzech funkcji AI ustawia się w panelu → „Model AI” (tabela `lms_llm_settings`, migracja `20261110180000_lms_ai_settings.sql`). Tam też włącza się asystenta: pojawia się wtedy pod każdym zadaniem, widzi kod ucznia i wynik ostatniego sprawdzenia, odpowiada modelem ustawionym dla `ask()` i ma dzienny limit pytań od północy. Uczeń widzi swoje limity na stronie Konto (`lms_my_ai_usage()`).
+`llm` i `assistant` korzystają ze wspólnego `supabase/functions/_shared/providers.ts`. Modele i limity wszystkich trzech funkcji AI ustawia się w panelu → „Model AI” (tabela `lms_llm_settings`, migracja `20261110180000_lms_ai_settings.sql`; notatka kursu dla asystenta wymaga `20261111120000_lms_course_assistant_notes.sql`). Tam też włącza się asystenta: pojawia się wtedy pod każdym zadaniem (poza „Wytłumacz koledze”), odpowiada modelem ustawionym dla `ask()` i ma dzienny limit pytań od północy. Prompt składa `supabase/functions/assistant/prompt.ts` z warstw: wspólne zasady, zasada dla rodzaju zadania (przy pytaniach zamkniętych bez zaznaczonych odpowiedzi), kurs z tematami do bieżącej lekcji i notatką `assistant.md`, zadanie z podpowiedziami (i tym, ile uczeń już otworzył), kod ucznia i wynik ostatniego sprawdzenia. Zadanie, kurs i podpowiedzi funkcja czyta z bazy, a strona wysyła tylko rozmowę, kod i wynik. Uczeń widzi swoje limity na stronie Konto (`lms_my_ai_usage()`).
 
 ## Lokalnie
 

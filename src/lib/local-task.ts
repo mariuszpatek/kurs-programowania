@@ -22,7 +22,7 @@ export function mountLocalTask(root: HTMLElement, task: { id: string }) {
   button.addEventListener('click', async () => {
     const text = field.value.trim();
     if (!text) {
-      status.textContent = 'Wklej link albo opisz, co zrobiłeś.';
+      status.textContent = 'Wklej link albo opisz swoją pracę.';
       field.focus();
       return;
     }
