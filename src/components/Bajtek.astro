@@ -1,0 +1,177 @@
+---
+// Bajtek, the assistant at lesson notes: a round button in the bottom right corner of the lesson page that opens
+// a chat panel (a side window on a computer, the whole screen on a phone). src/lib/bajtek.ts shows it once the
+// lesson has been loaded and the teacher has switched Bajtek on in the dashboard ("Model AI").
+import { BAJTEK_NAME } from '../lib/tutor-name';
+---
+
+<div class="bajtek" hidden>
+  <section class="bajtek-panel" hidden role="dialog" aria-label={`${BAJTEK_NAME}, pytania do lekcji`}>
+    <header>
+      <div>
+        <strong>{BAJTEK_NAME}</strong>
+        <span class="muted">pytania do lekcji</span>
+      </div>
+      <button class="ghost close" type="button" aria-label="Zamknij">×</button>
+    </header>
+    <p class="muted intro">
+      {BAJTEK_NAME} to AI, który zna lekcje tego kursu, które masz odblokowane. Przy działach i przykładach jest „Zapytaj”.
+    </p>
+    <div class="bajtek-quote" hidden>
+      <span class="bajtek-quote-text"></span>
+      <button class="ghost" type="button" aria-label="Usuń fragment">×</button>
+    </div>
+    <div class="chat-host"></div>
+    <div class="actions">
+      <button class="ghost restart" type="button" hidden>Wyczyść rozmowę</button>
+      <span class="muted left"></span>
+    </div>
+  </section>
+  <p class="bajtek-hint" hidden>Masz pytanie do lekcji?</p>
+  <button class="bajtek-fab" type="button" aria-expanded="false" aria-label={`${BAJTEK_NAME}: zapytaj o lekcję`} title={`${BAJTEK_NAME}: zapytaj o lekcję`}>
+    <span aria-hidden="true">?_</span>
+  </button>
+</div>
+
+<style>
+  .bajtek {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+  .bajtek-fab {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    padding: 0;
+    background: var(--text);
+    color: var(--bg, var(--surface));
+    border: 0;
+    box-shadow: var(--shadow);
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .bajtek-fab:hover {
+    transform: translateY(-1px);
+  }
+  .bajtek-hint {
+    margin: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    font-size: 14px;
+  }
+  .bajtek-panel {
+    display: flex;
+    flex-direction: column;
+    width: min(400px, calc(100vw - 40px));
+    height: min(600px, calc(100vh - 110px));
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .bajtek-panel[hidden] {
+    display: none;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  header .muted {
+    font-size: 13px;
+    margin-left: 6px;
+  }
+  .close {
+    font-size: 20px;
+    line-height: 1;
+    padding: 2px 8px;
+  }
+  .intro {
+    font-size: 13px;
+    margin: 6px 0 10px;
+  }
+  .bajtek-quote {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 4px 4px 4px 10px;
+    border-left: 2px solid var(--accent);
+    background: var(--surface-2);
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .bajtek-quote[hidden] {
+    display: none;
+  }
+  .chat-host {
+    flex: 1;
+    min-height: 0;
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 8px 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  .actions:has(.restart[hidden]):has(.left:empty) {
+    display: none;
+  }
+  /* on a phone the open panel takes the whole screen and the round button steps aside */
+  @media (max-width: 700px) {
+    .bajtek {
+      right: 14px;
+      bottom: 14px;
+    }
+    .bajtek.open {
+      inset: 0;
+    }
+    .bajtek.open .bajtek-panel {
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      border: 0;
+    }
+    .bajtek.open .bajtek-fab {
+      display: none;
+    }
+  }
+
+  /* "Zapytaj" next to section headings and examples, added by bajtek.ts */
+  :global(.bajtek-ask) {
+    font-size: 12.5px;
+    padding: 2px 8px;
+  }
+  :global(.lesson-section > h2 .bajtek-ask) {
+    margin-left: auto;
+    align-self: center;
+    font-family: inherit;
+    font-weight: 400;
+  }
+  @media (hover: hover) {
+    :global(.lesson-section > h2 .bajtek-ask) {
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    :global(.lesson-section:hover > h2 .bajtek-ask),
+    :global(.lesson-section > h2 .bajtek-ask:focus-visible) {
+      opacity: 1;
+    }
+  }
+</style>

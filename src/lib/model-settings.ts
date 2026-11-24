@@ -1,10 +1,10 @@
 // "Model AI" in the teacher dashboard: which provider answers ask() / chat() and the tutor (Anthropic or
 // OpenRouter), which models, prices for computing the cost, monthly limits, this month's spending per person,
-// the tutor's switch and daily limit, and the models and limits of "Wytłumacz koledze" (Robcio).
-// The edge functions `llm`, `assistant` and `explain` read the same row (supabase/migrations/…_lms_llm.sql,
-// …_lms_ai_settings.sql).
+// the tutor's and Bajtek's switches and daily limits, and the models and limits of "Wytłumacz koledze" (Robcio).
+// The edge functions `llm`, `assistant`, `lesson-assistant` and `explain` read the same row
+// (supabase/migrations/…_lms_llm.sql, …_lms_ai_settings.sql, …_lms_bajtek.sql).
 import { supabase } from './supabase';
-import { TUTOR_NAME } from './tutor-name';
+import { BAJTEK_NAME, TUTOR_NAME } from './tutor-name';
 
 type Settings = {
   provider: 'anthropic' | 'openrouter';
@@ -17,6 +17,8 @@ type Settings = {
   teacher_monthly_limit_usd: number;
   assistant_enabled: boolean;
   assistant_daily_limit: number;
+  bajtek_enabled?: boolean;
+  bajtek_daily_limit?: number;
   explain_chat_model: string;
   explain_summary_model: string;
   explain_daily_limit: number;
@@ -92,6 +94,12 @@ export async function mountModelSettings(root: HTMLElement) {
   assistantOn.type = 'checkbox';
   assistantOn.checked = settings.assistant_enabled;
   const assistantLimit = input(settings.assistant_daily_limit, 'number', '1');
+  const bajtekOn = el('input');
+  bajtekOn.type = 'checkbox';
+  bajtekOn.checked = settings.bajtek_enabled ?? false;
+  const bajtekLimit = input(settings.bajtek_daily_limit ?? 40, 'number', '1');
+  // before the migration …_lms_bajtek.sql the columns are missing, so the section stays out and is not saved
+  const hasBajtek = 'bajtek_enabled' in settings;
   const explainChat = input(settings.explain_chat_model);
   const explainSummary = input(settings.explain_summary_model);
   const explainLimit = input(settings.explain_daily_limit, 'number', '1');
@@ -108,9 +116,19 @@ export async function mountModelSettings(root: HTMLElement) {
     el('div', '', 'model-grid'),
     el('h3', 'Wytłumacz koledze (Robcio)'),
     el('div', '', 'model-grid'),
+    el('h3', `Asystent przy notatkach z lekcji (${BAJTEK_NAME})`),
+    el('div', '', 'model-grid'),
     el('div', '', 'model-actions'),
   );
-  const [, models, money, , assistant, , explain, actions] = [...form.children] as HTMLElement[];
+  const [, models, money, , assistant, , explain, bajtekTitle, bajtek, actions] = [...form.children] as HTMLElement[];
+  bajtek.append(
+    field('Włączony', bajtekOn, 'okrągły przycisk na stronach lekcji; zna odblokowane lekcje, odpowiada modelem ustawionym wyżej'),
+    field('Pytania dziennie (uczeń)', bajtekLimit, 'licznik od północy, osobny od asystenta przy zadaniach'),
+  );
+  if (!hasBajtek) {
+    bajtekTitle.remove();
+    bajtek.remove();
+  }
   assistant.append(
     field('Włączony', assistantOn, 'pod każdym zadaniem; odpowiada modelem ustawionym wyżej, tak jak ask()'),
     field('Pytania dziennie (uczeń)', assistantLimit, 'licznik od północy'),
@@ -156,6 +174,7 @@ export async function mountModelSettings(root: HTMLElement) {
         explain_daily_limit: Number(explainLimit.value),
         explain_teacher_daily_limit: Number(explainTeacherLimit.value),
         explain_task_limit: Number(explainTaskLimit.value),
+        ...(hasBajtek ? { bajtek_enabled: bajtekOn.checked, bajtek_daily_limit: Number(bajtekLimit.value) } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', 1);
@@ -197,7 +216,7 @@ export async function mountModelSettings(root: HTMLElement) {
   root.append(
     el(
       'p',
-      `Model, z którego korzystają ask() i chat() w zadaniach i asystent przy zadaniach (${TUTOR_NAME}), oraz ustawienia rozmów z Robciem. Klucze API są w sekretach funkcji w Supabase, nie tutaj. Po przekroczeniu limitu w dolarach model odmawia do końca miesiąca.`,
+      `Model, z którego korzystają ask() i chat() w zadaniach i asystent przy zadaniach (${TUTOR_NAME}) i przy notatkach (${BAJTEK_NAME}), oraz ustawienia rozmów z Robciem. Klucze API są w sekretach funkcji w Supabase, nie tutaj. Po przekroczeniu limitu w dolarach model odmawia do końca miesiąca.`,
       'muted',
     ),
     form,

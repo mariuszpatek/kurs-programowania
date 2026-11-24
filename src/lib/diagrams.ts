@@ -58,6 +58,4 @@ export function mountDiagrams(root: HTMLElement) {
 }
 
 /** Lesson Markdown with each drawing replaced by its caption (for the "copy lesson" export). */
-export function drawingsAsText(md: string): string {
-  return md.replace(/<figure class="diagram" data-alt="([^"]*)">[\s\S]*?<\/figure>/g, (_, alt: string) => `[Rysunek: ${alt.replace(/&quot;/g, '"')}]`);
-}
+export { drawingsAsText } from '../../supabase/functions/_shared/lesson-text';

@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Bajtek from '../components/Bajtek.astro';
 ---
 
 <Layout title="Lekcja" wide>
@@ -60,6 +61,7 @@ import Layout from '../layouts/Layout.astro';
       </section>
     </div>
   </div>
+  <Bajtek />
 </Layout>
 
 <script>
@@ -74,6 +76,7 @@ import Layout from '../layouts/Layout.astro';
   import { mountTaskChecks, taskChecksAsText } from '../lib/task-checks';
   import { param } from '../lib/url';
   import { recordVisit } from '../lib/visits';
+  import { mountBajtek } from '../lib/bajtek';
 
   // "Schemat" in "Krok po kroku": false hides it from students again, the teacher keeps it
   const FLOWCHARTS_FOR_STUDENTS = true;
@@ -188,6 +191,7 @@ import Layout from '../layouts/Layout.astro';
     mountTaskChecks($('lesson-body'), course, lessonTasks, statuses);
     if (lessonTasks.length) showTasks(course, lessonTasks, statuses);
     $('lesson-meta').textContent = `ok. ${minutes} min czytania · ${taskCount(lessonTasks.length)}`;
+    void mountBajtek(course, lesson, $('lesson-body'));
 
     if (course.tutor_prompt) {
       $('tutor-prompt').innerHTML = renderMarkdown(fence('', tutorPrompt(course, courseLessons, lesson.number)));

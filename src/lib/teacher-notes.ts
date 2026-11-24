@@ -13,7 +13,6 @@ export type InlineNote = { slug: string; title: string; body: string };
 
 const NOTE_HEADING = /^## @([\w-]+)[ \t]*(.*)$/;
 const MARKER = /^\s*nauczyciel:\s*([\w-]+)\s*$/;
-const MARKER_LINE = /^[ \t]*<!--\s*nauczyciel:\s*[\w-]+\s*-->[ \t]*\n?/gm;
 
 /** Splits notes into the general part and the sections pinned to lesson markers. */
 export function splitTeacherNotes(md: string): { general: string; inline: InlineNote[] } {
@@ -80,7 +79,5 @@ export function notesAsMarkdown(general: string, inline: InlineNote[]): string {
   return [general, ...inline.map((n) => `## ${n.title || 'Dla nauczyciela'}\n\n${n.body}`)].filter(Boolean).join('\n\n');
 }
 
-/** Lesson Markdown without the teacher markers (for the student's "copy lesson" export). */
-export function stripTeacherMarkers(md: string): string {
-  return md.replace(MARKER_LINE, '');
-}
+/** Lesson Markdown without the teacher markers (for the student's "copy lesson" export and Bajtek). */
+export { stripTeacherMarkers } from '../../supabase/functions/_shared/lesson-text';

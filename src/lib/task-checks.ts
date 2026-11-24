@@ -10,7 +10,6 @@ import { taskPath, type Course, type Task } from './content';
 import type { TaskStatus } from './progress';
 
 const MARKER = /^\s*zadanie:\s*(\d+(?:\s*,\s*\d+)*)\s*$/;
-const MARKER_LINE = /^[ \t]*<!--\s*zadanie:\s*(\d+(?:\s*,\s*\d+)*)\s*-->[ \t]*$/gm;
 
 const STATUS_TEXT: Record<TaskStatus, string> = { done: 'zaliczone', started: 'w trakcie', todo: 'do zrobienia' };
 
@@ -57,11 +56,4 @@ export function mountTaskChecks(root: HTMLElement, course: Course, tasks: Task[]
 }
 
 /** Markers as plain text for the "copy lesson" export: "Sprawdź się: zadanie 3 (Tytuł)". */
-export function taskChecksAsText(md: string, tasks: Task[]): string {
-  return md.replace(MARKER_LINE, (_, list: string) => {
-    const linked = numbers(list)
-      .map((n) => tasks.find((t) => t.number === n))
-      .filter((t): t is Task => Boolean(t));
-    return linked.length ? `**Sprawdź się:** ${linked.map((t) => `zadanie ${t.number} (${t.title})`).join(', ')}` : '';
-  });
-}
+export { taskChecksAsText } from '../../supabase/functions/_shared/lesson-text';

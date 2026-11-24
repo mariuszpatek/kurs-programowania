@@ -30,11 +30,12 @@ import Layout from '../layouts/Layout.astro';
   import { requireAccess } from '../lib/content';
   import { supabase } from '../lib/supabase';
   import { url } from '../lib/url';
-  import { TUTOR_NAME } from '../lib/tutor-name';
+  import { BAJTEK_NAME, TUTOR_NAME } from '../lib/tutor-name';
 
   type AiUsage = {
     explain: { used: number; limit: number };
     assistant: { enabled: boolean; used: number; limit: number };
+    bajtek?: { enabled: boolean; used: number; limit: number };
     llm: { spent_usd: number; limit_usd: number };
   };
 
@@ -71,6 +72,9 @@ import Layout from '../layouts/Layout.astro';
       limitRow('Wytłumacz koledze', u.explain.used, u.explain.limit, `dziś ${u.explain.used} z ${u.explain.limit} wiadomości`, 'Odnowi się o północy'),
       ...(u.assistant.enabled
         ? [limitRow(`Asystent przy zadaniach (${TUTOR_NAME})`, u.assistant.used, u.assistant.limit, `dziś ${u.assistant.used} z ${u.assistant.limit} pytań`, 'Odnowi się o północy')]
+        : []),
+      ...(u.bajtek?.enabled
+        ? [limitRow(`Asystent przy notatkach (${BAJTEK_NAME})`, u.bajtek.used, u.bajtek.limit, `dziś ${u.bajtek.used} z ${u.bajtek.limit} pytań`, 'Odnowi się o północy')]
         : []),
       limitRow('Model w zadaniach (ask)', Number(u.llm.spent_usd), Number(u.llm.limit_usd), `w tym miesiącu ${usd(u.llm.spent_usd)} z ${usd(u.llm.limit_usd)}`, 'Odnowi się 1. dnia miesiąca'),
     );
