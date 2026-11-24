@@ -99,5 +99,5 @@ export const pythonRunner: Runner = {
   run: (code, stdin, onInput) => send<RunResult>('run', { code, stdin }, onInput),
   check: (code, tests) => send<CheckResult>('check', { code, tests }),
   predict: (code, guess) => send<PredictResult>('predict', { code, stdin: guess }),
-  trace: (code, stdin) => send<TraceResult>('trace', { code, stdin }),
+  trace: (code, stdin, onInput) => send<TraceResult>('trace', { code, stdin }, onInput),
 };

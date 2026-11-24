@@ -4,8 +4,9 @@
 // With "Pokaż liczenie w linijce" on, every line is also taken apart like Thonny's "step into":
 // age = int(input(...)) → age = int('16') → age = 16.
 // Words after "krok" are the answers for input(), one per line: ```python krok 16 Ola
+// The debugger at tasks (workspace.ts) uses the same player with the editor as its code view (debug-editor.ts).
 import { escapeHtml } from './languages/highlight';
-import { TimedOut, type Language, type TracePart, type TraceStep } from './languages/types';
+import { TimedOut, type Language, type TracePart, type TraceResult, type TraceStep } from './languages/types';
 import { stepControls } from './step-controls';
 import type { FlowProgram } from './flowchart/model';
 
@@ -143,8 +144,8 @@ const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').match
  * The value written by a line flies from the end of that line into its variable's box,
  * so it is clear where the value in "Zmienne" came from. Only when moving forward.
  */
-function flyValues(root: HTMLElement, from: HTMLElement, vars: HTMLElement, flying: Change[]) {
-  if (reducedMotion() || !flying.length) return;
+function flyValues(root: HTMLElement, from: HTMLElement | null, vars: HTMLElement, flying: Change[]) {
+  if (reducedMotion() || !flying.length || !from) return;
   const range = document.createRange();
   range.selectNodeContents(from);
   const start = range.getBoundingClientRect();
@@ -174,9 +175,55 @@ function flyValues(root: HTMLElement, from: HTMLElement, vars: HTMLElement, flyi
   });
 }
 
-/** Options for an example that opens by itself (```python schemat): the view to start on, whatever the reader
- * picked last time, and no focus, since the reader did not click anything. */
-type StepperOptions = { view?: 'code' | 'flow'; focus?: boolean };
+/** Where the player shows the code: a list of lines under the example, or the editor at tasks (debug-editor.ts).
+ * Lines are 0-based; kind '' clears a line. */
+export type CodeView = {
+  setLine(n: number, kind: string, tag: string, html?: string): void;
+  clear(): void;
+  /** The line's text, where a value starts its flight into "Zmienne". */
+  lineElement(n: number): HTMLElement | null;
+  /** Shown next to the variables (the list view); absent when the code is elsewhere. */
+  element?: HTMLElement;
+};
+
+/** For an example that opens by itself (```python schemat): the view to start on, whatever the reader picked last time,
+ * and no focus, since the reader did not click anything. For the debugger: its code view, where the player goes,
+ * how the program is recorded (with input() in the console), the breakpoints for "Do kropki" and extra buttons. */
+type StepperOptions = {
+  view?: 'code' | 'flow';
+  focus?: boolean;
+  codeView?: CodeView;
+  parent?: HTMLElement;
+  trace?: () => Promise<TraceResult>;
+  breakpoints?: () => Set<number>;
+  extra?: HTMLElement[];
+};
+
+/** The lines of the example under it, highlighted like the code block. */
+function listView(source: string, language: Language): CodeView {
+  const lines = source.replace(/\n$/, '').split('\n');
+  const element = el('ol', 'stepper-code');
+  const highlighted = lines.map((line) => language.highlight(line) || ' ');
+  const items = lines.map((_, n) => {
+    const li = el('li');
+    li.innerHTML = `<span class="ln">${n + 1}</span><code>${highlighted[n]}</code><span class="line-tag"></span>`;
+    element.append(li);
+    return li;
+  });
+  const setLine = (n: number, kind: string, tag: string, html?: string) => {
+    const li = items[n];
+    if (!li) return;
+    li.className = kind;
+    li.querySelector('code')!.innerHTML = html ?? highlighted[n];
+    li.querySelector('.line-tag')!.textContent = tag;
+  };
+  return {
+    element,
+    setLine,
+    clear: () => items.forEach((_, n) => setLine(n, '', '')),
+    lineElement: (n) => items[n]?.querySelector('code') ?? null,
+  };
+}
 
 /** Builds the player under `anchor` and records the program. */
 export function mountStepper(anchor: HTMLElement, source: string, language: Language, stdin: string, options: StepperOptions = {}): HTMLElement {
@@ -184,15 +231,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   root.setAttribute('aria-label', 'Program krok po kroku');
   root.tabIndex = -1;
 
-  const lines = source.replace(/\n$/, '').split('\n');
-  const codeList = el('ol', 'stepper-code');
-  const highlighted = lines.map((line) => language.highlight(line) || ' ');
-  const lineItems = lines.map((_, n) => {
-    const li = el('li');
-    li.innerHTML = `<span class="ln">${n + 1}</span><code>${highlighted[n]}</code><span class="line-tag"></span>`;
-    codeList.append(li);
-    return li;
-  });
+  const lines = options.codeView ?? listView(source, language);
 
   const vars = el('div', 'stepper-vars');
   const output = el('pre', 'stepper-output');
@@ -200,7 +239,9 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   state.append(el('p', 'eyebrow', 'Zmienne'), vars, el('p', 'eyebrow', 'Na ekranie'), output);
 
   const body = el('div', 'stepper-body');
-  body.append(codeList, state);
+  if (lines.element) body.append(lines.element);
+  else body.classList.add('no-code');
+  body.append(state);
   const flowHost = el('div', 'stepper-flow');
   flowHost.hidden = true;
   body.insertBefore(flowHost, state);
@@ -220,10 +261,15 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   detailBox.type = 'checkbox';
   detailBox.checked = loadDetailed();
   detail.append(detailBox, ' Pokaż liczenie w linijce');
-  const controls = stepControls((to) => go(to), root, [detail]);
+  const toMark = el('button', 'ghost', 'Do kropki ▶▶');
+  toMark.type = 'button';
+  toMark.title = 'Idź do następnej linijki z kropką (kropkę stawia kliknięcie obok numeru linijki)';
+  toMark.addEventListener('click', () => toBreakpoint());
+  const controls = stepControls((to) => go(to), root, [...(options.breakpoints ? [toMark] : []), detail, ...(options.extra ?? [])]);
 
   root.append(views, body, text, controls.element);
-  anchor.after(root);
+  if (options.parent) options.parent.append(root);
+  else anchor.after(root);
 
   let steps: TraceStep[] = [];
   let positions: Position[] = [];
@@ -236,12 +282,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
     ]);
   }
 
-  function setLine(n: number, kind: string, tag: string, html?: string) {
-    const li = lineItems[n];
-    li.className = kind;
-    li.querySelector('code')!.innerHTML = html ?? highlighted[n];
-    li.querySelector('.line-tag')!.textContent = tag;
-  }
+  const setLine = lines.setLine;
 
   async function setView(view: 'code' | 'flow', remember = true) {
     if (view === 'flow' && !chart && flow) {
@@ -255,7 +296,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
       flowHost.append(chart.element);
     }
     const onFlow = view === 'flow' && Boolean(chart);
-    codeList.hidden = onFlow;
+    if (lines.element) lines.element.hidden = onFlow;
     flowHost.hidden = !onFlow;
     body.classList.toggle('on-flow', onFlow);
     codeButton.setAttribute('aria-pressed', String(!onFlow));
@@ -269,7 +310,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   function render(forward = false) {
     const { step: i, part } = positions[at];
     const step = steps[i];
-    lineItems.forEach((_, n) => setLine(n, '', ''));
+    lines.clear();
 
     if (part !== null) {
       // inside a line: the variables and the screen are still as they were before this line
@@ -289,11 +330,27 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
       output.classList.toggle('empty', !step.output);
       text.innerHTML = lineCaption(steps, i);
       if (forward && step.line !== null && !step.error) {
-        flyValues(root, lineItems[step.line - 1].querySelector('code')!, vars, changes(steps[i - 1], step));
+        flyValues(root, lines.lineElement(step.line - 1), vars, changes(steps[i - 1], step));
       }
     }
     if (chart && !flowHost.hidden) chart.show(i, forward && part === null);
     controls.update(at, positions.length);
+  }
+
+  /** Stops before the next line with a breakpoint, like a debugger: that line is the one marked "następna". */
+  function toBreakpoint() {
+    if (!steps.length) return;
+    const marks = options.breakpoints!();
+    if (!marks.size) {
+      text.textContent = 'Najpierw postaw kropkę: kliknij obok numeru linijki w edytorze.';
+      return;
+    }
+    for (let j = positions[at].step + 1; j < steps.length; j++) {
+      const following = steps[j + 1]?.line;
+      if (following && marks.has(following) && !steps[j].error) return go(positions.findIndex((p) => p.step === j && p.part === null));
+    }
+    go(positions.length - 1);
+    text.innerHTML = `Program nie dochodzi już do żadnej kropki. ${text.innerHTML}`;
   }
 
   function go(to: number) {
@@ -312,8 +369,7 @@ export function mountStepper(anchor: HTMLElement, source: string, language: Lang
   });
   controls.update(0, 0);
   text.textContent = 'Uruchamiam Pythona… Za pierwszym razem trwa to kilka sekund.';
-  language
-    .runner!.trace!(source, stdin)
+  (options.trace ?? (() => language.runner!.trace!(source, stdin)))()
     .then((result) => {
       if (!result.steps.length) {
         text.innerHTML = result.error ? `Ten kod się nie uruchomi: ${code(result.error.message)}` : 'Ten program nic nie robi.';

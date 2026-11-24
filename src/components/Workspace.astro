@@ -1,6 +1,6 @@
 ---
-// Editor with Run / Check buttons and a console. Markup only: src/lib/workspace.ts mounts it
-// once the task has been loaded. Without tests it works as a sandbox (run only).
+// Editor with Run / Check buttons, "Krok po kroku" (the debugger) and a console. Markup only: src/lib/workspace.ts
+// mounts it once the task has been loaded. Without tests it works as a sandbox (run only).
 ---
 
 <div class="workspace" hidden>
@@ -21,9 +21,12 @@
     </details>
 
     <div class="actions">
+      <button class="debug-toggle ghost" type="button" disabled hidden title="Program linijka po linijce. Kropka obok numeru linijki: tam zatrzyma się „Do kropki”.">Krok po kroku</button>
       <button class="run" disabled>Uruchom <kbd>Ctrl ↵</kbd></button>
       <button class="check primary" disabled hidden>Sprawdź</button>
     </div>
+
+    <div class="debug" hidden></div>
 
     <div class="console" hidden>
       <div class="console-head">
@@ -124,6 +127,18 @@
     gap: 8px;
     padding: 12px 16px;
     border-top: 1px solid var(--line);
+  }
+  .actions .debug-toggle {
+    margin-right: auto;
+  }
+  /* "Krok po kroku": the player without its own copy of the code, the lines are marked in the editor */
+  .debug {
+    border-top: 1px solid var(--line);
+  }
+  .debug :global(.stepper) {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
   }
   .console {
     background: var(--console);
@@ -300,6 +315,13 @@
   :global(.fullscreen) .console {
     grid-area: console;
     overflow: auto;
+  }
+  /* while stepping, the player takes the console's column (the console shows only to answer input()) */
+  :global(.fullscreen) .debug {
+    grid-area: console;
+    overflow: auto;
+    border-top: 0;
+    border-left: 1px solid var(--line);
   }
   :global(.fullscreen) .results {
     margin: 0;

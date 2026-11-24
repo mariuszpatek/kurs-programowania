@@ -4,6 +4,7 @@ import { indentWithTab } from '@codemirror/commands';
 import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
 import type { Language } from './languages';
+import { debugExtension } from './debug-editor';
 import './code-size';
 
 // Colours come from the page's CSS variables, so the editor follows the light/dark theme on its own; the size
@@ -33,11 +34,13 @@ const syntax = HighlightStyle.define([
   { tag: t.comment, color: 'var(--code-comment)', fontStyle: 'italic' },
 ]);
 
-export function createEditor(parent: HTMLElement, doc: string, language: Language, onChange?: (doc: string) => void): EditorView {
+/** With `debug`, the editor gets breakpoints and the marks of "Krok po kroku" (debug-editor.ts, the workspace at tasks). */
+export function createEditor(parent: HTMLElement, doc: string, language: Language, onChange?: (doc: string) => void, { debug = false } = {}): EditorView {
   return new EditorView({
     parent,
     doc,
     extensions: [
+      debug ? debugExtension() : [],
       basicSetup,
       language.editorExtension(),
       theme,

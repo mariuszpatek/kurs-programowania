@@ -207,6 +207,30 @@
   margin-top: 16px;
 }
 
+/* the debugger at tasks: the code is in the editor above, so the variables and the screen sit side by side */
+.stepper-body.no-code {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 641px) {
+  .stepper-body.no-code .stepper-state {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-auto-flow: column;
+    column-gap: 16px;
+  }
+  .stepper-body.no-code .stepper-state .eyebrow + * + .eyebrow {
+    margin-top: 0;
+  }
+  .fullscreen .stepper-body.no-code .stepper-state {
+    display: block;
+  }
+  .fullscreen .stepper-body.no-code .stepper-state .eyebrow + * + .eyebrow {
+    margin-top: 16px;
+  }
+}
+
 .stepper-vars {
   display: flex;
   flex-direction: column;

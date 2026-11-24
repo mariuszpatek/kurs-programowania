@@ -7,6 +7,8 @@ import { modelUsageText } from './model-usage';
 import { askInConsole } from './console-input';
 import { codeSizeButtons } from './code-size';
 import { fullscreenButton } from './fullscreen';
+import { mountStepper } from './stepper';
+import { breakpointLines, editorCodeView, setLocked } from './debug-editor';
 
 export type WorkspaceOptions = {
   language: Language;
@@ -51,10 +53,16 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   }
 
   const draft = loadDraft(options.draftKey);
-  const editor = createEditor($('.editor'), draft ?? options.starterCode, language, (code) => {
-    taskState.code = code;
-    saveDraft(options.draftKey, code);
-  });
+  const editor = createEditor(
+    $('.editor'),
+    draft ?? options.starterCode,
+    language,
+    (code) => {
+      taskState.code = code;
+      saveDraft(options.draftKey, code);
+    },
+    { debug: Boolean(runner?.trace) },
+  );
   taskState.code = editor.state.doc.toString();
   // No draft in this browser: continue from the last attempt (e.g. the student switched computers).
   if (options.task && draft === null) lastAttemptCode(options.task.id).then((code) => code && setDoc(editor, code));
@@ -65,8 +73,9 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   $('.tools').append(
     codeSizeButtons(() => editor.requestMeasure()),
     fullscreenButton(options.fullscreen?.scope ?? root, (on) => {
-      // the console has its own column in full screen, so it shows before the first run too
-      if (on && console_.hidden) {
+      // the console has its own column in full screen, so it shows before the first run too (not while stepping:
+      // the player has that column then)
+      if (on && console_.hidden && !debugging) {
         console_.hidden = false;
         terminal.textContent = '(tu pojawi się wynik programu)';
         terminal.classList.add('empty');
@@ -77,9 +86,13 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   );
 
   let runnerReady = false;
+  const debugButton = $<HTMLButtonElement>('.debug-toggle');
+  debugButton.hidden = !runner?.trace;
+  let debugging = false;
   const busy = (yes: boolean, text = '') => {
-    runButton.disabled = yes || !runnerReady;
-    checkButton.disabled = yes || !runnerReady;
+    runButton.disabled = yes || !runnerReady || debugging;
+    checkButton.disabled = yes || !runnerReady || debugging;
+    debugButton.disabled = !runnerReady || (yes && !debugging);
     status.textContent = text;
   };
   if (runner) {
@@ -160,6 +173,62 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
     busy(false);
   }
 
+  // ---------------------------------------------------------------- "Krok po kroku": the debugger in the editor
+  // The program is recorded once (input() asks in the console, as with "Uruchom"), then the player walks through
+  // it with the lines marked in the editor, which stays locked until "Zakończ". The dots next to the line numbers
+  // are breakpoints for "Do kropki"; they can be put down at any time.
+  const debugHost = $('.debug');
+  const ide = $('.ide');
+
+  function endDebug() {
+    if (!debugging) return;
+    debugging = false;
+    debugHost.replaceChildren();
+    debugHost.hidden = true;
+    ide.classList.remove('debugging');
+    setLocked(editor, false);
+    debugButton.textContent = 'Krok po kroku';
+    busy(false);
+    editor.focus();
+  }
+
+  function startDebug() {
+    if (!runner?.trace || debugging) return endDebug();
+    debugging = true;
+    $('.results').hidden = true;
+    console_.hidden = true;
+    setLocked(editor, true);
+    ide.classList.add('debugging');
+    debugButton.textContent = 'Zakończ krok po kroku';
+    busy(false, 'Krok po kroku: kod jest zablokowany do „Zakończ”. Kropka obok numeru linijki zatrzyma „Do kropki”.');
+    debugHost.hidden = false;
+    const code = editor.state.doc.toString();
+    const answer = async (output: string) => {
+      // the console answers input() as with "Uruchom"; the player waits under it
+      console_.hidden = false;
+      terminal.hidden = false;
+      showError(null);
+      debugHost.hidden = true;
+      const reply = await askInConsole(terminal, output, stopButton);
+      console_.hidden = true;
+      debugHost.hidden = false;
+      return reply;
+    };
+    const finish = document.createElement('button');
+    finish.type = 'button';
+    finish.className = 'ghost';
+    finish.textContent = 'Zakończ';
+    finish.addEventListener('click', endDebug);
+    mountStepper(debugHost, code, language, stdin.value, {
+      parent: debugHost,
+      codeView: editorCodeView(editor),
+      trace: () => runner.trace!(code, stdin.value, answer),
+      breakpoints: () => breakpointLines(editor),
+      extra: [finish],
+    });
+  }
+
+  debugButton.addEventListener('click', startDebug);
   runButton.addEventListener('click', run);
   root.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -207,6 +276,7 @@ export function mountWorkspace(root: HTMLElement, options: WorkspaceOptions) {
   // Two clicks instead of confirm(): the first asks, a second one within 3 s restores the starter code.
   let confirmTimer: number | undefined;
   resetButton.addEventListener('click', () => {
+    endDebug();
     if (confirmTimer) {
       clearTimeout(confirmTimer);
       confirmTimer = undefined;

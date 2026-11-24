@@ -42,8 +42,8 @@ export type Runner = {
   run(code: string, stdin: string, onInput?: InputHandler): Promise<RunResult>;
   check(code: string, tests: string): Promise<CheckResult>;
   predict(code: string, guess: string): Promise<PredictResult>;
-  /** Records the program line by line for the "step by step" view in lessons. */
-  trace?(code: string, stdin: string): Promise<TraceResult>;
+  /** Records the program line by line for "Krok po kroku" (lesson examples and the debugger at tasks). */
+  trace?(code: string, stdin: string, onInput?: InputHandler): Promise<TraceResult>;
 };
 
 /** Everything the site needs to know about one programming language. */

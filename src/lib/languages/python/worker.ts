@@ -116,9 +116,10 @@ self.onmessage = async (e: MessageEvent) => {
     pyodide.globals.set('_code', job.code);
     pyodide.globals.set('_stdin', job.stdin ?? '');
     pyodide.globals.set('_tests', job.tests ?? '');
-    // only "Uruchom" asks in the console; tests, predict and trace read their prepared input
+    // "Uruchom" and the debugger at tasks ("Krok po kroku" in workspace.ts) ask in the console; tests, predict and
+    // the steps of lesson examples read their prepared input
     currentJob = job.id;
-    pyodide.globals.set('_console_input', job.kind === 'run' && Boolean(job.consoleInput) && inputUrl !== null);
+    pyodide.globals.set('_console_input', (job.kind === 'run' || job.kind === 'trace') && Boolean(job.consoleInput) && inputUrl !== null);
     pyodide.runPython('checker.INPUT_BACKEND = _wait_for_input if _console_input else None');
     self.postMessage({ id: job.id, result: JSON.parse(pyodide.runPython(EXPRESSIONS[job.kind])) });
   } catch (err) {
